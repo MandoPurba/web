@@ -11,11 +11,13 @@ import Skills from '@/components/sections/Skills.astro';
 import Writing from '@/components/sections/Writing.astro';
 import Contact from '@/components/sections/Contact.astro';
 import Footer from '@/components/sections/Footer.astro';
+import SceneIsland from '@/components/three/SceneIsland';
 import { site } from '@/config/site';
 ---
 
 <BaseLayout title={site.name}>
   <Header slot="header" />
+  <SceneIsland client:media="(min-width: 48rem)" />
   <Hero />
   <HowIWork />
   <Work />

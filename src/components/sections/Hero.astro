@@ -10,7 +10,7 @@ const marks = {
 ---
 
 <section id="top" aria-labelledby="hero-title" data-chapter="0" class="scroll-mt-30 px-[clamp(1rem,4vw,3rem)] pt-16 pb-20">
-  <div class="mx-auto flex max-w-300 flex-col gap-14">
+  <div class="relative z-10 mx-auto flex max-w-300 flex-col gap-14">
     <div class="flex flex-wrap items-center gap-x-10 gap-y-12">
       <div class="flex min-w-0 flex-[1_1_36rem] flex-col gap-8">
         <p
@@ -55,7 +55,7 @@ const marks = {
         </div>
       </div>
 
-      <figure data-m="rise" class="relative mx-auto min-w-65 flex-[0_1_23.75rem] pt-6 pr-4">
+      <figure data-m="rise" data-scene-anchor="hero" class="relative mx-auto min-w-65 flex-[0_1_23.75rem] pt-6 pr-4">
         <div class="rotate-[1.5deg] border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
           <div class="flex aspect-[4/5] items-center justify-center border-b-(length:--border-width) border-border bg-muted">
             <span class="font-mono text-sm font-bold text-muted-foreground">TODO: photo</span>
@@ -95,7 +95,7 @@ const marks = {
   </div>
 </section>
 
-<div aria-hidden="true" class="overflow-hidden border-y-(length:--border-width) border-border bg-primary text-primary-foreground">
+<div aria-hidden="true" class="relative z-10 overflow-hidden border-y-(length:--border-width) border-border bg-primary text-primary-foreground">
   <div data-marquee class="flex w-max will-change-transform">
     {
       [...hero.marquee, ...hero.marquee].map((item) => (

@@ -30,6 +30,7 @@ function figure() {
     for (const card of cards) card.dataset.active = String(card.dataset.workCard === view);
     const tab = tabs.find((t) => t.dataset.viewTab === view && t.dataset.note);
     if (note && tab?.dataset.note) note.textContent = tab.dataset.note;
+    document.dispatchEvent(new CustomEvent('rp:view', { detail: view }));
   };
 
   for (const tab of tabs) tab.addEventListener('click', () => show(tab.dataset.viewTab!));

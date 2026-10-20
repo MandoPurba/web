@@ -30,8 +30,9 @@ bunx astro check
 
 ## Architecture rules
 - Sections are `.astro` components → zero JS by default. Motion lives in one bundled script (`src/scripts/motion.ts`) driven by `data-*` hooks.
-- Exactly ONE `<Canvas>`: the isometric system graph inside the Work section figure (desktop ≥ 48rem only), hydrated `client:visible` and lazy-importing Three.js. A build-time SVG of the same graph sits behind it as the no-JS / no-WebGL / mobile fallback.
-- Scroll → GSAP ScrollTrigger picks the active layer (API / queue / DB) → `rp:layer` event → camera eases to that layer in `useFrame`. Never `setState` per frame.
+- Exactly ONE `<Canvas>`: a decorative background scene on the homepage only (`src/components/three/BackgroundScene.tsx`), `position: fixed`, `pointer-events: none`, `aria-hidden`. Hydrated with `client:media="(min-width: 48rem)"` (no scene on mobile) and Three.js is imported when the browser is idle.
+- Layering: the canvas sits at `z-0`, above section backgrounds; section content is `relative z-10`, so cards and text always cover it.
+- Chapters park the graph in empty DOM slots (`[data-scene-anchor="hero|how|work|experience|contact"]`). Each frame the scene measures the slots and morphs between the two around the viewport (scroll-scrubbed): hero orbit around the photo → whole graph → graph with the Fig.01 project's layers lit (`rp:view` event) → vertical stack beside the timeline → one cube beside the contact headline. Never `setState` per frame.
 - Each HTML section = one animation "chapter" (`data-chapter`).
 - All meaningful text lives in HTML, never inside the canvas.
 
