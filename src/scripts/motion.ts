@@ -63,6 +63,12 @@ function timeline() {
   });
 }
 
+/** Flip cards (hero photo): a click shows the other side. Works with reduced motion too (no animation). */
+function flipCards() {
+  for (const card of $$<HTMLButtonElement>('[data-flip]'))
+    card.addEventListener('click', () => card.setAttribute('aria-pressed', String(card.getAttribute('aria-pressed') !== 'true')));
+}
+
 /** Mobile menu: close after picking a link, reveal on open. */
 function menu() {
   const details = document.querySelector<HTMLDetailsElement>('[data-menu]');
@@ -201,6 +207,7 @@ function artifacts() {
 }
 
 figure();
+flipCards();
 timeline();
 menu();
 if (!reduced) {

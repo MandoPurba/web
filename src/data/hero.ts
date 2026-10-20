@@ -13,8 +13,12 @@ export const hero = {
   secondaryCta: { label: 'Say hi', href: '#contact' },
   note: '← start here',
   photo: {
-    // TODO: add the portrait (4:5) and import it here.
-    caption: ['IMG_0001.JPG', '// me, mid-deploy'],
+    /** Flip card: two photos, `front.*` and `back.*` in src/assets/hero/ (4:5). */
+    sides: [
+      { file: 'front', alt: 'TODO: describe the front photo', caption: ['IMG_0001.JPG', '// me, mid-deploy'] },
+      { file: 'back', alt: 'TODO: describe the back photo', caption: ['IMG_0002.JPG', '// TODO: caption'] },
+    ],
+    flip: 'Flip the photo',
     sticker: `hi, I'm ${site.name.split(' ')[0]}`,
     tag: `${site.location.timezone} · ${site.location.locality.split(',')[0]}`,
   },
