@@ -31,6 +31,7 @@ bunx astro check
 ## Architecture rules
 - Sections are `.astro` components → zero JS by default. Motion lives in one bundled script (`src/scripts/motion.ts`) driven by `data-*` hooks.
 - Exactly ONE `<Canvas>`: the isometric system graph inside the Work section figure (desktop ≥ 48rem only), hydrated `client:visible` and lazy-importing Three.js. A build-time SVG of the same graph sits behind it as the no-JS / no-WebGL / mobile fallback.
+- Mascot (`src/components/mascot/`): a second, separate canvas on every page (desktop only, `client:media`, loaded when idle): a fixed, full-viewport, pointer-events-none overlay in CSS-pixel units (orthographic, zoom 1). It never covers content with interactive area except its own hit box; the cursor-grab game blocks clicks only until the user shakes the cursor or presses Escape (10 s timeout). Disabled under reduced motion.
 - Scroll → GSAP ScrollTrigger picks the active layer (API / queue / DB) → `rp:layer` event → camera eases to that layer in `useFrame`. Never `setState` per frame.
 - Each HTML section = one animation "chapter" (`data-chapter`).
 - All meaningful text lives in HTML, never inside the canvas.
@@ -81,6 +82,11 @@ bunx astro check
   --input: oklch(0 0 0);
   --ring: oklch(0.495 0.285 269.1);
 
+  /* Mascot (Three.js reads these at runtime) */
+  --mascot-case: oklch(0.912 0.026 92.4);       /* box head, ears, paws, legs */
+  --mascot-body: oklch(1 0 0);                  /* hoodie */
+  --mascot-screen: oklch(0 0 0);                /* face screen */
+
   --radius: 0rem;
   --border-width: 4px;
   --border-width-sm: 2px;
@@ -100,6 +106,8 @@ bunx astro check
   --border: oklch(0.982 0.022 89.8);
   --input: oklch(0.982 0.022 89.8);
   --ring: oklch(0.901 0.240 129.4);
+  --mascot-case: oklch(0.86 0.02 90);
+  --mascot-body: oklch(0.96 0.01 90);
   /* primary/secondary/accent unchanged: brand colors stay constant */
 }
 

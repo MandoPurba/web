@@ -9,6 +9,11 @@ export interface ThemeColors {
   primaryForeground: string;
   secondary: string;
   accent: string;
+  destructive: string;
+  border: string;
+  mascotCase: string;
+  mascotBody: string;
+  mascotScreen: string;
 }
 
 const TOKENS: Record<keyof ThemeColors, string> = {
@@ -21,6 +26,11 @@ const TOKENS: Record<keyof ThemeColors, string> = {
   primaryForeground: '--primary-foreground',
   secondary: '--secondary',
   accent: '--accent',
+  destructive: '--destructive',
+  border: '--border',
+  mascotCase: '--mascot-case',
+  mascotBody: '--mascot-body',
+  mascotScreen: '--mascot-screen',
 };
 
 let ctx: CanvasRenderingContext2D | null = null;

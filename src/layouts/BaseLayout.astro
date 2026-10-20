@@ -3,6 +3,7 @@ import type { Thing } from 'schema-dts';
 import SEO from '@/components/seo/SEO.astro';
 import JsonLd from '@/components/seo/JsonLd.astro';
 import ThemeToggle from '@/components/ui/ThemeToggle.astro';
+import MascotIsland from '@/components/mascot/MascotIsland';
 import { site } from '@/config/site';
 import spaceGroteskWoff2 from '@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2?url';
 import '@/styles/global.css';
@@ -59,6 +60,7 @@ const { lang = site.locale, jsonLd, ...seo } = Astro.props;
     </main>
     <slot name="footer" />
     <ThemeToggle />
+    <MascotIsland client:media="(min-width: 48rem)" />
     <script>
       import '@/scripts/motion';
     </script>

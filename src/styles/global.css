@@ -25,6 +25,11 @@
   --input: oklch(0 0 0);
   --ring: oklch(0.495 0.285 269.1);
 
+  /* Mascot (Three.js reads these at runtime) */
+  --mascot-case: oklch(0.912 0.026 92.4);       /* box head, ears, paws, legs */
+  --mascot-body: oklch(1 0 0);                  /* hoodie */
+  --mascot-screen: oklch(0 0 0);                /* face screen */
+
   --radius: 0rem;
   --border-width: 4px;
   --border-width-sm: 2px;
@@ -44,6 +49,8 @@
   --border: oklch(0.982 0.022 89.8);
   --input: oklch(0.982 0.022 89.8);
   --ring: oklch(0.901 0.240 129.4);
+  --mascot-case: oklch(0.86 0.02 90);
+  --mascot-body: oklch(0.96 0.01 90);
   /* primary/secondary/accent unchanged: brand colors stay constant */
 }
 
