@@ -1,7 +1,15 @@
 ---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import Button from '@/components/ui/Button.astro';
 import { hero } from '@/data/hero';
 import { tldr } from '@/lib/llms';
+
+// Photos are picked up from src/assets/hero/ by name (front.*, back.*); missing ones show a placeholder.
+const photos = import.meta.glob<{ default: ImageMetadata }>('/src/assets/hero/*.{jpg,jpeg,png,webp,avif}', { eager: true });
+const photoFor = (name: string) =>
+  Object.entries(photos).find(([path]) => path.split('/').pop()!.split('.')[0] === name)?.[1].default;
+const sides = hero.photo.sides.map((side) => ({ ...side, image: photoFor(side.file) }));
 
 const marks = {
   primary: { block: 'bg-primary', text: 'text-primary-foreground' },
@@ -56,14 +64,55 @@ const marks = {
       </div>
 
       <figure data-m="rise" class="relative mx-auto min-w-65 flex-[0_1_23.75rem] pt-6 pr-4">
-        <div class="rotate-[1.5deg] border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
-          <div class="flex aspect-[4/5] items-center justify-center border-b-(length:--border-width) border-border bg-muted">
-            <span class="font-mono text-sm font-bold text-muted-foreground">TODO: photo</span>
+        <button
+          type="button"
+          data-flip
+          aria-pressed="false"
+          aria-label={hero.photo.flip}
+          class="group block w-full rotate-[1.5deg] cursor-pointer text-left perspective-[1400px]"
+        >
+          <div
+            class="relative transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform-3d group-aria-pressed:rotate-y-180 motion-reduce:transition-none"
+          >
+            {
+              sides.map((side, i) => (
+                <div
+                  class:list={[
+                    'border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal backface-hidden',
+                    i === 1 && 'absolute inset-0 rotate-y-180',
+                  ]}
+                >
+                  <div class="relative aspect-[4/5] overflow-hidden border-b-(length:--border-width) border-border bg-muted">
+                    {side.image ? (
+                      <Image
+                        src={side.image}
+                        alt={side.alt}
+                        widths={[380, 760]}
+                        sizes="380px"
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        fetchpriority={i === 0 ? 'high' : 'auto'}
+                        class="size-full object-cover"
+                      />
+                    ) : (
+                      <span class="flex size-full items-center justify-center font-mono text-sm font-bold text-muted-foreground">
+                        TODO: photo {i + 1}
+                      </span>
+                    )}
+                    <span
+                      aria-hidden="true"
+                      class="absolute top-3 right-3 border-(length:--border-width-sm) border-border bg-foreground px-2 py-1 font-mono text-[0.6875rem] font-bold tracking-[0.06em] text-background uppercase"
+                    >
+                      ↻ {i + 1}/2
+                    </span>
+                  </div>
+                  <p class="flex justify-between gap-3 px-3.5 py-2.5 font-mono text-xs font-bold tracking-[0.04em]">
+                    {side.caption.map((part) => <span>{part}</span>)}
+                  </p>
+                </div>
+              ))
+            }
           </div>
-          <figcaption class="flex justify-between gap-3 px-3.5 py-2.5 font-mono text-xs font-bold tracking-[0.04em]">
-            {hero.photo.caption.map((part) => <span>{part}</span>)}
-          </figcaption>
-        </div>
+        </button>
         <span
           aria-hidden="true"
           class="absolute top-0 -left-4 -rotate-7 border-(length:--border-width) border-border bg-primary px-4 pt-1.5 pb-2 font-hand text-[2rem] leading-none text-primary-foreground shadow-brutal-sm"
