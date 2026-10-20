@@ -1,0 +1,35 @@
+---
+type Accent = 'primary' | 'secondary' | 'accent';
+
+interface Props {
+  as?: 'div' | 'article' | 'li';
+  accent?: Accent;
+  class?: string;
+}
+
+const { as: Tag = 'div', accent, class: className } = Astro.props;
+
+const accents: Record<Accent, string> = {
+  primary: 'bg-primary text-primary-foreground',
+  secondary: 'bg-secondary text-secondary-foreground',
+  accent: 'bg-accent text-accent-foreground',
+};
+---
+
+<Tag
+  class:list={[
+    'flex flex-col bg-card text-card-foreground border-(length:--border-width) border-border shadow-brutal',
+    className,
+  ]}
+>
+  {
+    accent && (
+      <div class:list={['border-b-(length:--border-width) border-border px-5 py-2', accents[accent]]}>
+        <slot name="header" />
+      </div>
+    )
+  }
+  <div class="flex flex-1 flex-col gap-4 p-5">
+    <slot />
+  </div>
+</Tag>

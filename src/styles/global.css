@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource/caveat/700.css";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(0.982 0.022 89.8);        /* cream */
+  --foreground: oklch(0 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0 0 0);
+  --primary: oklch(0.917 0.192 101.4);          /* yellow */
+  --primary-foreground: oklch(0 0 0);
+  --secondary: oklch(0.495 0.285 269.1);        /* blue */
+  --secondary-foreground: oklch(1 0 0);
+  --accent: oklch(0.901 0.240 129.4);           /* green */
+  --accent-foreground: oklch(0 0 0);
+  --muted: oklch(0.912 0.026 92.4);
+  --muted-foreground: oklch(0.36 0.02 90);
+  --destructive: oklch(0.506 0.193 27.7);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0 0 0);
+  --input: oklch(0 0 0);
+  --ring: oklch(0.495 0.285 269.1);
+
+  --radius: 0rem;
+  --border-width: 4px;
+  --border-width-sm: 2px;
+  --shadow-offset: 6px;
+  --shadow-offset-sm: 3px;
+}
+
+.dark {
+  --background: oklch(0.17 0.008 90);
+  --foreground: oklch(0.982 0.022 89.8);
+  --card: oklch(0.22 0.01 90);
+  --card-foreground: oklch(0.982 0.022 89.8);
+  --popover: oklch(0.22 0.01 90);
+  --popover-foreground: oklch(0.982 0.022 89.8);
+  --muted: oklch(0.3 0.012 90);
+  --muted-foreground: oklch(0.84 0.02 90);
+  --border: oklch(0.982 0.022 89.8);
+  --input: oklch(0.982 0.022 89.8);
+  --ring: oklch(0.901 0.240 129.4);
+  /* primary/secondary/accent unchanged: brand colors stay constant */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+
+  --shadow-brutal: var(--shadow-offset) var(--shadow-offset) 0 0 var(--border);
+  --shadow-brutal-sm: var(--shadow-offset-sm) var(--shadow-offset-sm) 0 0 var(--border);
+
+  --font-display: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --font-hand: "Caveat", cursive;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans overflow-x-clip;
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  :focus-visible {
+    outline: var(--border-width-sm) solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@theme {
+  --animate-blink: blink 1.2s steps(1, end) infinite;
+
+  @keyframes blink {
+    0%,
+    49.9% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0.2;
+    }
+  }
+}
+
+/* Underline that wipes in on hover. */
+@utility link-wipe {
+  padding-bottom: 4px;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0% 3px no-repeat;
+  transition: background-size 200ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  &:hover {
+    background-size: 100% 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

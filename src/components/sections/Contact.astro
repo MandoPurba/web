@@ -1,0 +1,62 @@
+---
+import { site, socialLinks } from '@/config/site';
+
+const rows = [
+  { label: 'Email', url: `mailto:${site.email}`, text: site.email },
+  ...socialLinks
+    .filter(({ label }) => label !== 'Medium')
+    .map(({ label, url }) => ({ label, url, text: url?.replace(/^https?:\/\/(www\.)?/, '') ?? 'TODO' })),
+];
+const ink = 'border-primary-foreground';
+---
+
+<section
+  id="contact"
+  aria-labelledby="contact-title"
+  data-chapter="8"
+  class="scroll-mt-24 border-t-(length:--border-width) border-border bg-primary px-[clamp(1rem,4vw,3rem)] py-28 text-primary-foreground"
+>
+  <div class="mx-auto flex max-w-300 flex-col gap-12">
+    <div class="flex flex-col gap-4">
+      <span data-type class="self-start font-mono text-sm font-bold tracking-[0.06em] uppercase">08 / Say hi</span>
+      <h2 id="contact-title" class="text-[clamp(3.5rem,10vw,9.5rem)] leading-[0.9] font-bold tracking-[-0.05em]">
+        <span data-wipe class="relative inline-block"><span data-wipe-text>Say hi.</span></span>
+      </h2>
+      <p class="max-w-[30em] text-[clamp(1.125rem,1.6vw,1.375rem)] leading-normal">
+        Want to talk backend, job queues, or why Postgres is usually enough? I'm happy to. Roles, questions, or a second opinion on your schema.
+      </p>
+    </div>
+    <ul class:list={['flex flex-col border-(length:--border-width) bg-card text-card-foreground shadow-[var(--shadow-offset)_var(--shadow-offset)_0_0_var(--primary-foreground)]', ink]}>
+      {
+        rows.map(({ label, url, text }, i) => {
+          const row = [
+            'flex flex-wrap items-center justify-between gap-4 p-6 text-[clamp(1.25rem,3vw,2.125rem)] font-bold tracking-[-0.02em]',
+            i > 0 && ['border-t-(length:--border-width)', ink],
+          ];
+          const content = (
+            <>
+              <span class="flex-[0_0_6rem] font-mono text-[0.8125rem] tracking-[0.06em] uppercase">{label}</span>
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">{text}</span>
+              {url && <span aria-hidden="true">↗</span>}
+            </>
+          );
+          return (
+            <li>
+              {url ? (
+                <a href={url} class:list={[row, 'hover:bg-secondary hover:text-secondary-foreground']}>
+                  {content}
+                </a>
+              ) : (
+                <div class:list={[row, 'text-muted-foreground']}>{content}</div>
+              )}
+            </li>
+          );
+        })
+      }
+    </ul>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <span class="font-mono text-[0.8125rem] font-medium">// no forms. just write to me like a person.</span>
+      <span aria-hidden="true" class="-rotate-4 font-hand text-[clamp(2.5rem,5vw,3.75rem)] leading-none">— {site.name.split(' ')[0]}</span>
+    </div>
+  </div>
+</section>

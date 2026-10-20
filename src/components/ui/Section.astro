@@ -1,0 +1,41 @@
+---
+interface Props {
+  id: string;
+  chapter: number;
+  /** Small typed label above the heading, e.g. "How I work". */
+  label: string;
+  /** Mono comment to the right of the heading. */
+  aside?: string;
+  tone?: 'default' | 'muted';
+  class?: string;
+}
+
+const { id, chapter, label, aside, tone = 'default', class: className } = Astro.props;
+const headingId = `${id}-title`;
+---
+
+<section
+  id={id}
+  aria-labelledby={headingId}
+  data-chapter={chapter}
+  class:list={[
+    'scroll-mt-24 border-t-(length:--border-width) border-border px-[clamp(1rem,4vw,3rem)] py-24',
+    tone === 'muted' && 'bg-muted',
+    className,
+  ]}
+>
+  <div class="mx-auto max-w-300">
+    <div class="mb-12 flex flex-col gap-3 border-b-(length:--border-width) border-border pb-5">
+      <span data-type class="self-start font-mono text-sm font-bold tracking-[0.06em] uppercase">
+        {String(chapter).padStart(2, '0')} / {label}
+      </span>
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <h2 id={headingId} class="text-[clamp(2.75rem,6vw,5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
+          <span data-wipe class="relative inline-block"><span data-wipe-text><slot name="heading" /></span></span>
+        </h2>
+        {aside && <span class="font-mono text-[0.8125rem] font-medium">{aside}</span>}
+      </div>
+    </div>
+    <slot />
+  </div>
+</section>

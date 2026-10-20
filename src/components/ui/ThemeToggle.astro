@@ -1,0 +1,62 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<button
+  data-theme-toggle
+  type="button"
+  aria-pressed="false"
+  aria-label="Dark mode"
+  class:list={[
+    'fixed right-4 bottom-4 z-40 flex h-12 items-center justify-center gap-2.5 border-(length:--border-width) border-border bg-foreground px-4 font-mono text-[0.8125rem] font-bold tracking-[0.06em] text-background uppercase shadow-brutal-sm transition-[box-shadow,translate,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-secondary hover:text-secondary-foreground hover:shadow-brutal active:translate-x-(--shadow-offset-sm) active:translate-y-(--shadow-offset-sm) active:shadow-none md:right-6 md:bottom-6',
+    className,
+  ]}
+>
+  <span aria-hidden="true" class="size-3 border-(length:--border-width-sm) border-current"></span>
+  <span aria-hidden="true" data-theme-label>Dark</span>
+</button>
+<div data-theme-wipe aria-hidden="true" class="pointer-events-none invisible fixed inset-0 z-100 bg-primary"></div>
+<script is:inline>
+  (() => {
+    const root = document.documentElement;
+    const wipe = document.querySelector('[data-theme-wipe]');
+    const buttons = document.querySelectorAll('[data-theme-toggle]');
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ease = 'cubic-bezier(0.16,1,0.3,1)';
+    const sync = () => {
+      const dark = root.classList.contains('dark');
+      buttons.forEach((button) => {
+        button.setAttribute('aria-pressed', String(dark));
+        const label = button.querySelector('[data-theme-label]');
+        if (label) label.textContent = dark ? 'Light' : 'Dark';
+      });
+    };
+    const apply = (dark) => {
+      root.classList.toggle('dark', dark);
+      try {
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+      } catch {}
+      sync();
+    };
+    sync();
+    buttons.forEach((button) =>
+      button.addEventListener('click', () => {
+        const dark = !root.classList.contains('dark');
+        if (reduced || !wipe || !wipe.animate) return apply(dark);
+        wipe.style.visibility = 'visible';
+        const opts = { duration: 150, easing: ease, fill: 'forwards' };
+        wipe.animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], opts).onfinish = () => {
+          apply(dark);
+          wipe.animate([{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 0 100%)' }], opts).onfinish = () => {
+            wipe.style.visibility = 'hidden';
+            wipe.getAnimations().forEach((a) => a.cancel());
+          };
+        };
+      }),
+    );
+  })();
+</script>

@@ -1,0 +1,11 @@
+---
+import { splitCode } from '@/lib/inline-code';
+
+interface Props {
+  text: string;
+}
+
+const parts = splitCode(Astro.props.text);
+---
+
+{parts.map((part) => (part.code ? <code class="font-mono text-[0.88em]">{part.text}</code> : part.text))}

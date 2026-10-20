@@ -1,0 +1,37 @@
+---
+import type { Layer } from '@/data/iso';
+import { isoSvg } from '@/lib/iso-svg';
+
+interface Props {
+  active: Layer;
+}
+
+const { viewBox, grid, edges, layers, nodes } = isoSvg(Astro.props.active);
+const text =
+  "font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;stroke:var(--background);stroke-width:4px;paint-order:stroke";
+const face = 'stroke:var(--foreground);stroke-width:3;stroke-linejoin:miter';
+---
+
+<svg {viewBox} preserveAspectRatio="xMidYMid meet" class="block size-full" aria-hidden="true">
+  {grid.map(([a, b]) => <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} style="stroke:var(--muted);stroke-width:2" />)}
+  {
+    layers.map((l) => (
+      <text x={l.at[0]} y={l.at[1]} text-anchor="middle" style={`${text};fill:${l.id === Astro.props.active ? 'var(--foreground)' : 'var(--muted-foreground)'}`}>
+        {l.label}
+      </text>
+    ))
+  }
+  {edges.map((d) => <path {d} style="fill:none;stroke:var(--foreground);stroke-width:2.5" />)}
+  {
+    nodes.map((n) => (
+      <g>
+        <polygon points={n.right} vector-effect="non-scaling-stroke" style={`fill:var(--primary-foreground);${face}`} />
+        <polygon points={n.left} vector-effect="non-scaling-stroke" style={`fill:${n.fill};${face}`} />
+        <polygon points={n.top} vector-effect="non-scaling-stroke" style={`fill:${n.fill};${face}`} />
+        <text x={n.at[0]} y={n.at[1]} text-anchor="middle" style={`${text};fill:var(--foreground)`}>
+          {n.label}
+        </text>
+      </g>
+    ))
+  }
+</svg>

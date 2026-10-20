@@ -1,0 +1,68 @@
+---
+title: Course registration & exam seat booking
+summary: Self-service exam seat booking by location, date and session for Universitas Terbuka, with atomic seat claiming that prevents double booking.
+updatedAt: 2026-10-20
+scale: 857K+ registrations
+period: {} # TODO: start date (and end date, if no longer ongoing)
+stack:
+  - NestJS
+  - PostgreSQL
+metrics:
+  - value: 857K+
+    label: Registrations
+featured: true
+order: 1
+status: shipped
+teaser:
+  label: Exam seat booking
+  part: 'My part: design + build'
+  headline: I designed concurrency-safe seat claiming.
+  body: Thousands of students hit the same exam sessions at once. I used Postgres `FOR UPDATE SKIP LOCKED` so claims skip each other instead of queueing on one row, and gave each claim a 2-hour hold that expires on its own.
+  metric: { value: 857K+, label: Registrations handled }
+  note: // the row lock is the queue
+  tags: [NestJS, PostgreSQL, SKIP LOCKED]
+---
+
+import SeatBooking from '@/components/artifacts/SeatBooking.astro';
+
+## Context
+
+Universitas Terbuka's course registration and exam seat booking lets students reserve their own exam seat by location, date and session, and has handled 857K+ registrations.
+
+It runs on the national university platform serving 800K+ students, built at the Directorate of Digital Technology (DTD).
+
+## Problem
+
+Exam seats are limited per location, date and session, and many students book at the same time. Two concurrent requests must never claim the same seat, and seats held by registrations whose hold expires must return to the pool.
+
+TODO: what the booking flow looked like before.
+
+## Approach
+
+- **Atomic seat claiming.** A seat is claimed with `FOR UPDATE SKIP LOCKED`: each transaction locks one free seat row and skips rows already locked by other transactions, so concurrent requests take different seats instead of colliding.
+- **2-hour holds.** A claimed seat is held for two hours.
+- **Expired-seat reclaim.** When a hold expires, the seat is reclaimed based on the registration's billing status.
+
+TODO: how expired holds are detected and reclaimed (job, trigger or on-read).
+
+## Architecture
+
+<SeatBooking class="my-8 border-(length:--border-width) border-border shadow-brutal" />
+
+TODO: services, tables and request flow.
+
+## Key decisions & trade-offs
+
+- **`SKIP LOCKED` instead of plain `FOR UPDATE`.** Plain `FOR UPDATE` makes concurrent requests wait on the same locked row; `SKIP LOCKED` lets each move on to the next free seat. The trade-off is that seat assignment under contention is not strictly ordered.
+- **Holds instead of immediate confirmation.** TODO: why holds last two hours and why reclaim depends on billing status.
+
+## Result
+
+- 857K+ registrations handled.
+- Double booking prevented by atomic seat claiming.
+
+TODO: further outcomes.
+
+## What I'd do differently
+
+TODO

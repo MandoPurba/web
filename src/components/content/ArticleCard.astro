@@ -1,0 +1,59 @@
+---
+import Badge from '@/components/ui/Badge.astro';
+import { articleNotes } from '@/data/articles';
+import { formatMonth, type Article } from '@/lib/articles';
+import { toneClasses } from '@/lib/tones';
+
+interface Props {
+  article: Article;
+  /** 1-based, counted from the oldest article. */
+  number: number;
+  headingLevel?: 2 | 3;
+}
+
+const { article, number, headingLevel = 3 } = Astro.props;
+const { title, url, publishedAt, tags, excerpt } = article.data;
+const note = articleNotes[article.id];
+const kicker = note?.kicker ?? tags.slice(0, 2).join(' × ');
+const word = note?.word ?? tags[0]?.replace(/-/g, ' ') ?? 'Note';
+const Heading = `h${headingLevel}` as const;
+---
+
+<article
+  data-card
+  class="flex h-full flex-col border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal transition-[translate,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-x-0.75 hover:-translate-y-0.75 hover:shadow-[calc(var(--shadow-offset)+3px)_calc(var(--shadow-offset)+3px)_0_0_var(--border)]"
+>
+  <div
+    data-strip
+    aria-hidden="true"
+    class:list={[
+      'flex min-h-50 flex-col justify-between gap-6 border-b-(length:--border-width) border-border p-6 font-mono font-bold uppercase',
+      number % 2 === 0 ? toneClasses.secondary : toneClasses.accent,
+    ]}
+  >
+    <span class="text-xs tracking-[0.06em]">
+      Note {String(number).padStart(2, '0')} · {kicker}
+    </span>
+    <span class="text-[clamp(2rem,3.6vw,3rem)] leading-none tracking-[-0.04em]">{word}</span>
+  </div>
+  <div class="flex flex-1 flex-col gap-4 p-6">
+    <p class="flex flex-wrap items-center gap-2 font-mono text-xs font-bold tracking-[0.06em] uppercase">
+      <time datetime={publishedAt.toISOString()}>{formatMonth(publishedAt)}</time><span aria-hidden="true">·</span><span>Medium</span>
+    </p>
+    <Heading class="font-bold text-[clamp(1.375rem,2.2vw,1.75rem)] leading-[1.15] tracking-[-0.02em] text-pretty">{title}</Heading>
+    <p class="leading-normal">{note?.blurb ?? excerpt}</p>
+    <ul aria-label="Tags" class="flex flex-wrap gap-2">
+      {
+        (note?.tags ?? tags.slice(0, 3)).map((tag) => (
+          <li>
+            <Badge>{tag}</Badge>
+          </li>
+        ))
+      }
+    </ul>
+    <a href={url} target="_blank" rel="noopener" class="link-wipe mt-auto self-start text-sm font-bold tracking-[0.06em] uppercase">
+      Read on Medium <span aria-hidden="true">→</span>
+      <span class="sr-only">: {title} (opens in a new tab)</span>
+    </a>
+  </div>
+</article>

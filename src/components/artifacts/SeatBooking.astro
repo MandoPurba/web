@@ -1,0 +1,86 @@
+---
+/**
+ * W/01 artifact: concurrent requests claim exam seats with FOR UPDATE SKIP LOCKED.
+ * Rendered as a readable still frame; `src/scripts/artifacts/seat-booking.ts` animates it.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+
+const SEAT = 34;
+const GAP = 10;
+const COLS = 5;
+const ROWS = 3;
+const X0 = 170;
+const Y0 = 20;
+
+// Still frame shown without JS or with reduced motion.
+const booked = new Set([0, 1, 2, 5, 6]);
+const held = new Map([
+  [3, 0.6],
+  [7, 0.3],
+]);
+
+const seats = Array.from({ length: ROWS * COLS }, (_, i) => ({
+  i,
+  x: X0 + (i % COLS) * (SEAT + GAP),
+  y: Y0 + Math.floor(i / COLS) * (SEAT + GAP),
+  fill: booked.has(i) ? 'var(--secondary)' : held.has(i) ? 'var(--primary)' : 'var(--card)',
+  timer: (held.get(i) ?? 0) * SEAT,
+}));
+const lanes = ['A', 'B', 'C'].map((label, i) => ({ label, y: Y0 + SEAT / 2 + i * (SEAT + GAP) }));
+const legend = [
+  { label: 'Held 2h', fill: 'bg-primary' },
+  { label: 'Booked', fill: 'bg-secondary' },
+  { label: 'Free', fill: 'bg-card' },
+];
+---
+
+<figure data-artifact="seat-booking" class:list={['bg-background text-foreground', className]}>
+  <svg viewBox="0 0 400 166" class="block h-auto w-full" aria-hidden="true">
+    {
+      lanes.map((lane) => (
+        <g data-lane data-y={lane.y}>
+          <text x="8" y={lane.y + 4} class="fill-foreground font-mono text-[11px] font-bold">
+            REQ {lane.label}
+          </text>
+          <line x1="54" x2="152" y1={lane.y} y2={lane.y} class="stroke-muted-foreground" stroke-width="2" stroke-dasharray="4 6" />
+        </g>
+      ))
+    }
+    {
+      seats.map((seat) => (
+        <g>
+          <rect
+            data-seat
+            x={seat.x}
+            y={seat.y}
+            width={SEAT}
+            height={SEAT}
+            style={`fill:${seat.fill}`}
+            class="stroke-foreground"
+            stroke-width="2.5"
+            vector-effect="non-scaling-stroke"
+          />
+          <rect data-timer x={seat.x} y={seat.y + SEAT + 3} width={seat.timer} height="4" class="fill-foreground" />
+        </g>
+      ))
+    }
+    <g data-packets></g>
+  </svg>
+  <figcaption class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t-(length:--border-width-sm) border-border px-4 py-2.5 font-mono text-xs font-bold">
+    <span>// claims skip each other; holds expire on their own</span>
+    <span class="flex flex-wrap gap-3 uppercase">
+      {
+        legend.map(({ label, fill }) => (
+          <span class="flex items-center gap-1.5">
+            <span aria-hidden="true" class:list={['size-3 border-(length:--border-width-sm) border-border', fill]} />
+            {label}
+          </span>
+        ))
+      }
+    </span>
+  </figcaption>
+</figure>

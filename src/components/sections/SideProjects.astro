@@ -1,0 +1,69 @@
+---
+import Section from '@/components/ui/Section.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Rich from '@/components/ui/Rich.astro';
+import { sideProjects } from '@/data/side-projects';
+import { getArticles } from '@/lib/articles';
+import { toneClasses } from '@/lib/tones';
+
+const articles = await getArticles();
+const writeUp = (id?: string) => articles.find((article) => article.id === id)?.data.url;
+const card =
+  'flex h-full flex-col border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal transition-[translate,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-x-0.75 hover:-translate-y-0.75 hover:shadow-[calc(var(--shadow-offset)+3px)_calc(var(--shadow-offset)+3px)_0_0_var(--border)]';
+---
+
+<Section id="side" chapter={3} label="Side projects & experiments" aside="// where I learn Rust the hard way" tone="muted">
+  <Fragment slot="heading">After hours.</Fragment>
+  <ul data-stagger class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,21.25rem),1fr))] gap-8">
+    {
+      sideProjects.map((project, i) => {
+        const url = writeUp(project.articleId);
+        return (
+          <li>
+            <article data-card class={card}>
+              <p
+                data-strip
+                class:list={[
+                  'flex flex-wrap justify-between gap-4 border-b-(length:--border-width) border-border px-5 py-2.5 font-mono text-xs font-bold tracking-[0.06em] uppercase',
+                  toneClasses[project.tone],
+                ]}
+              >
+                <span>
+                  S/{String(i + 1).padStart(2, '0')} — {project.kind}
+                </span>
+                <span>{project.topic}</span>
+              </p>
+              <div class="flex flex-1 flex-col gap-4 p-6">
+                <h3 class="font-bold text-[clamp(1.625rem,2.8vw,2.125rem)] leading-[1.05] tracking-[-0.03em] text-pretty">{project.title}</h3>
+                <p class="text-lg leading-normal text-pretty">
+                  <Rich text={project.body} />
+                </p>
+                <span class="font-mono text-xs">{project.note}</span>
+                <ul aria-label="Stack" class="flex flex-wrap gap-2">
+                  {project.tags.map((tag) => (
+                    <li>
+                      <Badge>{tag}</Badge>
+                    </li>
+                  ))}
+                </ul>
+                <div class="mt-auto flex flex-wrap gap-6 border-t-(length:--border-width-sm) border-border pt-4 text-sm font-bold tracking-[0.06em] uppercase">
+                  <a href={url ?? '#writing'} class="link-wipe" {...(url && { target: '_blank', rel: 'noopener' })}>
+                    Read the write-up <span aria-hidden="true">→</span>
+                    <span class="sr-only">: {project.title}{url && ' (opens on Medium in a new tab)'}</span>
+                  </a>
+                  {project.repo ? (
+                    <a href={project.repo} class="link-wipe">
+                      Code <span aria-hidden="true">↗</span>
+                    </a>
+                  ) : (
+                    <span class="text-muted-foreground">Code: TODO</span>
+                  )}
+                </div>
+              </div>
+            </article>
+          </li>
+        );
+      })
+    }
+  </ul>
+</Section>

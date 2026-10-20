@@ -1,0 +1,101 @@
+---
+/**
+ * W/02 artifact: Go workers lease jobs from a Postgres queue, fan out per student,
+ * and recover from a dead worker (lease expiry) and from failures (retry with backoff).
+ * Rendered as a readable still frame; `src/scripts/artifacts/lease-retry.ts` animates it.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+
+const SLOT = { x: 12, y: 26, w: 72, h: 20, step: 28, count: 5 };
+const SQUARE = { x: 184, size: 14, step: 19, count: 6 };
+const LEASE = { x: 184, w: 206, h: 6 };
+
+// Still frame shown without JS or with reduced motion.
+const workers = [
+  { label: 'W1', done: 4, failed: -1, lease: 0.7, status: 'Leased', dead: false },
+  { label: 'W2', done: 2, failed: -1, lease: 0.9, status: '✕ Died', dead: true },
+  { label: 'W3', done: 3, failed: 3, lease: 0.6, status: 'Retry · ·', dead: false },
+].map((w, i) => ({ ...w, c: 38 + i * 54 }));
+const queued = 3;
+const legend = [
+  { label: 'Done', fill: 'bg-foreground' },
+  { label: 'Failed', fill: 'bg-destructive' },
+  { label: 'Lease', fill: 'bg-primary' },
+];
+---
+
+<figure data-artifact="lease-retry" class:list={['bg-background text-foreground', className]}>
+  <svg viewBox="0 0 400 180" class="block h-auto w-full" aria-hidden="true">
+    <text x={SLOT.x} y="16" class="fill-foreground font-mono text-[11px] font-bold">QUEUE</text>
+    {
+      Array.from({ length: SLOT.count }, (_, i) => (
+        <rect
+          data-slot
+          x={SLOT.x}
+          y={SLOT.y + i * SLOT.step}
+          width={SLOT.w}
+          height={SLOT.h}
+          class="fill-accent stroke-foreground"
+          stroke-width="2.5"
+          vector-effect="non-scaling-stroke"
+          visibility={i < queued ? 'visible' : 'hidden'}
+        />
+      ))
+    }
+    {
+      workers.map((w) => (
+        <g data-worker data-c={w.c} opacity={w.dead ? 0.45 : 1}>
+          <text x="104" y={w.c + 4} class="fill-foreground font-mono text-[11px] font-bold">
+            {w.label}
+          </text>
+          <rect
+            data-job
+            x="130"
+            y={w.c - 10}
+            width="40"
+            height="20"
+            class="fill-accent stroke-foreground"
+            stroke-width="2.5"
+            vector-effect="non-scaling-stroke"
+          />
+          {Array.from({ length: SQUARE.count }, (_, j) => (
+            <rect
+              data-square
+              x={SQUARE.x + j * SQUARE.step}
+              y={w.c - 15}
+              width={SQUARE.size}
+              height={SQUARE.size}
+              style={`fill:${j === w.failed ? 'var(--destructive)' : j < w.done ? 'var(--foreground)' : 'var(--card)'}`}
+              class="stroke-foreground"
+              stroke-width="2"
+              vector-effect="non-scaling-stroke"
+            />
+          ))}
+          <rect x={LEASE.x} y={w.c + 5} width={LEASE.w} height={LEASE.h} class="fill-card stroke-foreground" stroke-width="2" vector-effect="non-scaling-stroke" />
+          <rect data-lease x={LEASE.x} y={w.c + 5} width={LEASE.w * w.lease} height={LEASE.h} data-max={LEASE.w} class="fill-primary" />
+          <text data-status x="390" y={w.c - 4} text-anchor="end" class="fill-foreground font-mono text-[11px] font-bold uppercase">
+            {w.status}
+          </text>
+        </g>
+      ))
+    }
+    <g data-flying></g>
+  </svg>
+  <figcaption class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t-(length:--border-width-sm) border-border px-4 py-2.5 font-mono text-xs font-bold">
+    <span>// workers die; jobs come back. failures retry with backoff</span>
+    <span class="flex flex-wrap gap-3 uppercase">
+      {
+        legend.map(({ label, fill }) => (
+          <span class="flex items-center gap-1.5">
+            <span aria-hidden="true" class:list={['size-3 border-(length:--border-width-sm) border-border', fill]} />
+            {label}
+          </span>
+        ))
+      }
+    </span>
+  </figcaption>
+</figure>

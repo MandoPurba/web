@@ -1,0 +1,36 @@
+---
+import Section from '@/components/ui/Section.astro';
+import Card from '@/components/ui/Card.astro';
+import Button from '@/components/ui/Button.astro';
+import ArticleCard from '@/components/content/ArticleCard.astro';
+import { getArticles } from '@/lib/articles';
+
+const LIMIT = 3;
+const articles = await getArticles();
+---
+
+<Section id="writing" chapter={7} label="Writing" aside="// written so I don't forget, published in case you need it">
+  <Fragment slot="heading">Notes from the trenches.</Fragment>
+  {
+    articles.length > 0 ? (
+      <div class="flex flex-col items-start gap-8">
+        <ul data-stagger class="grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,21.25rem),1fr))] gap-8">
+          {articles.slice(0, LIMIT).map((article, i) => (
+            <li>
+              <ArticleCard article={article} number={articles.length - i} />
+            </li>
+          ))}
+        </ul>
+        {articles.length > LIMIT && (
+          <Button href="/writing" variant="outline">
+            All articles <span aria-hidden="true">→</span>
+          </Button>
+        )}
+      </div>
+    ) : (
+      <Card class="max-w-xl">
+        <p class="font-mono font-bold uppercase">Articles coming soon</p>
+      </Card>
+    )
+  }
+</Section>

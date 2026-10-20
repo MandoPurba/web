@@ -1,0 +1,34 @@
+---
+type Tone = 'muted' | 'background' | 'primary';
+type Size = 'sm' | 'md';
+
+interface Props {
+  tone?: Tone;
+  size?: Size;
+  class?: string;
+}
+
+const { tone = 'muted', size = 'sm', class: className } = Astro.props;
+
+const tones: Record<Tone, string> = {
+  muted: 'bg-muted text-foreground',
+  background: 'bg-background text-foreground',
+  primary: 'bg-primary text-primary-foreground',
+};
+
+const sizes: Record<Size, string> = {
+  sm: 'px-2.5 py-1 text-xs',
+  md: 'px-3 py-1.5 text-[0.8125rem]',
+};
+---
+
+<span
+  class:list={[
+    'inline-block border-(length:--border-width-sm) border-border font-mono font-bold uppercase',
+    tones[tone],
+    sizes[size],
+    className,
+  ]}
+>
+  <slot />
+</span>

@@ -1,0 +1,10 @@
+---
+const { class: _, ...props } = Astro.props;
+---
+
+<h2
+  {...props}
+  class="mt-14 mb-5 scroll-mt-20 border-b-(length:--border-width) border-border pb-2 font-display text-[clamp(1.6rem,4vw,2.25rem)] leading-tight font-bold uppercase tracking-tight"
+>
+  <slot />
+</h2>

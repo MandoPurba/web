@@ -1,0 +1,156 @@
+---
+import Section from '@/components/ui/Section.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Rich from '@/components/ui/Rich.astro';
+import SeatBooking from '@/components/artifacts/SeatBooking.astro';
+import LeaseRetry from '@/components/artifacts/LeaseRetry.astro';
+import { site } from '@/config/site';
+import { getProjects } from '@/lib/projects';
+import { toneClasses } from '@/lib/tones';
+
+/** Mechanism animation per project, shown in Fig.01 (desktop) or inside the card (mobile). */
+const artifacts: Partial<Record<string, typeof SeatBooking>> = {
+  'exam-seat-booking': SeatBooking,
+  'graduation-screening-worker': LeaseRetry,
+};
+
+const projects = (await getProjects())
+  .filter((project) => project.data.teaser)
+  .map((project, i) => ({ ...project, code: `W/${String(i + 1).padStart(2, '0')}`, Artifact: artifacts[project.id] }));
+const strips = [toneClasses.primary, toneClasses.accent];
+const views = projects
+  .filter((project) => project.Artifact)
+  .map((project) => ({ id: project.id, tab: project.code, note: `${project.code} — ${project.data.teaser!.headline}` }));
+/** Fig.01 opens on the first project. */
+const initial = views[0];
+---
+
+<Section id="work" chapter={2} label="Things I built at work" aside={`context: backend dev @ ${site.worksFor.name}`}>
+  <Fragment slot="heading">Built at work.</Fragment>
+  <div class="flex flex-wrap gap-10">
+    <ul data-stagger class="grid min-w-0 flex-[1_1_35rem] content-start gap-8">
+      {
+        projects.map(({ id, data, code, Artifact }, i) => {
+          const teaser = data.teaser!;
+          return (
+            <li>
+              <article
+                data-card
+                data-work-card={Artifact ? id : undefined}
+                data-active={String(id === initial?.id)}
+                class:list={[
+                  'border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal transition-[translate,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                  'hover:-translate-x-0.75 hover:-translate-y-0.75 hover:shadow-[calc(var(--shadow-offset)+3px)_calc(var(--shadow-offset)+3px)_0_0_var(--border)]',
+                  'data-[active=true]:-translate-x-0.75 data-[active=true]:-translate-y-0.75 data-[active=true]:shadow-[calc(var(--shadow-offset)+3px)_calc(var(--shadow-offset)+3px)_0_0_var(--secondary)]',
+                  Artifact && 'md:cursor-pointer',
+                ]}
+              >
+                <p
+                  data-strip
+                  class:list={[
+                    'flex flex-wrap justify-between gap-4 border-b-(length:--border-width) border-border px-5 py-2.5 font-mono text-xs font-bold tracking-[0.06em] uppercase',
+                    strips[i % strips.length],
+                  ]}
+                >
+                  <span>
+                    {code} — {teaser.label}
+                  </span>
+                  <span>{teaser.part}</span>
+                </p>
+                {Artifact && <Artifact class="border-b-(length:--border-width) border-border md:hidden" />}
+                <div class="flex flex-col gap-4 p-6">
+                  <h3 class="text-[clamp(1.625rem,2.8vw,2.125rem)] leading-[1.05] font-bold tracking-[-0.03em] text-pretty">
+                    {teaser.headline}
+                  </h3>
+                  <p class="text-lg leading-normal text-pretty">
+                    <Rich text={teaser.body} />
+                  </p>
+                  <div class="flex flex-wrap items-baseline gap-3 border-t-(length:--border-width-sm) border-border pt-4">
+                    <span class="font-mono text-[2rem] font-bold tracking-[-0.04em]">{teaser.metric.value}</span>
+                    {teaser.metric.label && (
+                      <span class="font-mono text-xs font-bold tracking-[0.06em] uppercase">{teaser.metric.label}</span>
+                    )}
+                    <span class="ml-auto font-mono text-xs">{teaser.note}</span>
+                  </div>
+                  <ul aria-label="Stack" class="flex flex-wrap gap-2">
+                    {teaser.tags.map((tag) => (
+                      <li>
+                        <Badge>{tag}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                  <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm font-bold tracking-[0.06em] uppercase">
+                    {Artifact && (
+                      <button
+                        type="button"
+                        data-view-tab={id}
+                        aria-controls="fig-01"
+                        aria-pressed={id === initial?.id ? 'true' : 'false'}
+                        class="hidden items-center gap-2 uppercase md:inline-flex aria-pressed:text-secondary dark:aria-pressed:text-accent"
+                      >
+                        <span aria-hidden="true" class="size-3 border-(length:--border-width-sm) border-current" />
+                        Watch it in Fig.01
+                      </button>
+                    )}
+                    <a href={`/work/${id}`} class="link-wipe ml-auto">
+                      How I did it <span aria-hidden="true">→</span>
+                      <span class="sr-only">: {data.title}</span>
+                    </a>
+                  </div>
+                </div>
+              </article>
+            </li>
+          );
+        })
+      }
+    </ul>
+
+    <div class="hidden min-w-0 flex-[1_1_25rem] md:block">
+      <figure
+        id="fig-01"
+        data-fig
+        data-view={initial?.id}
+        class="sticky top-30 border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal"
+      >
+        <figcaption
+          class="flex justify-between gap-4 border-b-(length:--border-width) border-border px-4 py-2.5 font-mono text-xs font-bold tracking-[0.06em] uppercase"
+        >
+          <span>Fig.01 — How I think about it</span><span aria-hidden="true">Click a card</span>
+        </figcaption>
+        <div role="group" aria-label="Figure view" class="flex border-b-(length:--border-width) border-border">
+          {
+            views.map((view, i) => (
+              <button
+                type="button"
+                data-view-tab={view.id}
+                data-note={view.note}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+                class:list={[
+                  'flex-1 bg-card px-2 py-3 font-mono text-xs font-bold tracking-[0.06em] text-card-foreground uppercase aria-pressed:bg-primary aria-pressed:text-primary-foreground',
+                  i < views.length - 1 && 'border-r-(length:--border-width) border-border',
+                ]}
+              >
+                {view.tab}
+              </button>
+            ))
+          }
+        </div>
+        <div class="relative h-100 overflow-hidden bg-background">
+          {
+            projects.map(
+              ({ id, Artifact }) =>
+                Artifact && (
+                  <div data-view-panel={id} hidden={id !== initial?.id} class="absolute inset-0 flex flex-col justify-center p-5">
+                    <Artifact class="border-(length:--border-width) border-border" />
+                  </div>
+                ),
+            )
+          }
+        </div>
+        <p data-view-note aria-live="polite" class="border-t-(length:--border-width) border-border px-4 py-3 font-mono text-xs leading-normal font-medium tracking-[0.02em]">
+          {initial?.note}
+        </p>
+      </figure>
+    </div>
+  </div>
+</Section>

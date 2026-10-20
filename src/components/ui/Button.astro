@@ -1,0 +1,39 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+
+type Variant = 'primary' | 'secondary' | 'outline';
+
+type Props = { variant?: Variant; href?: string; class?: string } & Omit<
+  HTMLAttributes<'a'> & HTMLAttributes<'button'>,
+  'class'
+>;
+
+const { variant = 'primary', href, class: className, ...rest } = Astro.props;
+
+const variants: Record<Variant, string> = {
+  primary: 'bg-primary text-primary-foreground',
+  secondary: 'bg-secondary text-secondary-foreground',
+  outline: 'bg-card text-card-foreground',
+};
+
+const classes = [
+  'inline-flex items-center justify-center gap-2.5 px-6 py-4 font-bold uppercase tracking-[0.06em]',
+  'border-(length:--border-width) border-border shadow-brutal-sm hover:shadow-brutal',
+  'transition-[box-shadow,translate] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
+  'active:translate-x-(--shadow-offset-sm) active:translate-y-(--shadow-offset-sm) active:shadow-none',
+  variants[variant],
+  className,
+];
+---
+
+{
+  href ? (
+    <a href={href} class:list={classes} {...rest}>
+      <slot />
+    </a>
+  ) : (
+    <button type="button" class:list={classes} {...rest}>
+      <slot />
+    </button>
+  )
+}

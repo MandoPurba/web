@@ -1,0 +1,66 @@
+---
+import type { Thing } from 'schema-dts';
+import SEO from '@/components/seo/SEO.astro';
+import JsonLd from '@/components/seo/JsonLd.astro';
+import ThemeToggle from '@/components/ui/ThemeToggle.astro';
+import { site } from '@/config/site';
+import spaceGroteskWoff2 from '@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2?url';
+import '@/styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
+  noindex?: boolean;
+  canonical?: string;
+  lang?: string;
+  jsonLd?: Exclude<Thing, string>[];
+}
+
+const { lang = site.locale, jsonLd, ...seo } = Astro.props;
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      (() => {
+        let theme = null;
+        try {
+          theme = localStorage.getItem('theme');
+        } catch {}
+        const dark = theme ? theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content={site.themeColor.light} />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content={site.themeColor.dark} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="preload" href={spaceGroteskWoff2} as="font" type="font/woff2" crossorigin />
+    <SEO {...seo} lang={lang} />
+    <JsonLd nodes={jsonLd} />
+    <slot name="head" />
+  </head>
+  <body class="min-h-dvh">
+    <a
+      href="#main"
+      class="sr-only z-20 bg-primary px-4 py-2 font-bold text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+    >
+      Skip to content
+    </a>
+    <slot name="header" />
+    <main id="main">
+      <slot />
+    </main>
+    <slot name="footer" />
+    <ThemeToggle />
+    <script>
+      import '@/scripts/motion';
+    </script>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+---
+import { site } from '@/config/site';
+import { absoluteUrl, isIndexable, ogLocale } from '@/lib/seo';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
+  noindex?: boolean;
+  canonical?: string;
+  lang?: string;
+}
+
+const {
+  title,
+  description = site.description,
+  image = site.defaultOgImage,
+  type = 'website',
+  publishedTime,
+  noindex = false,
+  canonical,
+  lang = site.locale,
+} = Astro.props;
+
+const siteUrl = Astro.site!;
+const isHome = Astro.url.pathname === '/';
+const fullTitle = isHome ? `${site.name} — ${site.jobTitle}` : `${title} · ${site.name}`;
+const canonicalUrl = absoluteUrl(canonical ?? Astro.url.pathname, siteUrl);
+const imageUrl = new URL(image, siteUrl).href;
+const robots = noindex || !isIndexable(siteUrl) ? 'noindex,nofollow' : 'index,follow';
+---
+
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonicalUrl} />
+<meta name="robots" content={robots} />
+
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:type" content={type} />
+<meta property="og:image" content={imageUrl} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:site_name" content={site.name} />
+<meta property="og:locale" content={ogLocale(lang)} />
+{type === 'article' && publishedTime && (
+  <meta property="article:published_time" content={publishedTime} />
+)}
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={imageUrl} />
+
+<link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
+<link rel="alternate" type="text/plain" href="/llms-full.txt" title="llms-full.txt" />
+<link rel="alternate" type="application/rss+xml" href="/rss.xml" title={`${site.name} — work & writing`} />
+<link rel="sitemap" href="/sitemap-index.xml" />

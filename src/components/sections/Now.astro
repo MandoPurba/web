@@ -1,0 +1,35 @@
+---
+import { now } from '@/data/now';
+---
+
+<section id="now" aria-labelledby="now-title" data-chapter="4" class="scroll-mt-24 border-t-(length:--border-width) border-border px-[clamp(1rem,4vw,3rem)] py-24">
+  <div class="mx-auto flex max-w-300 flex-wrap items-start gap-10">
+    <div class="flex flex-[1_1_20rem] flex-col gap-3">
+      <span data-type class="self-start font-mono text-sm font-bold tracking-[0.06em] uppercase">04 / Now</span>
+      <h2 id="now-title" class="text-[clamp(2.75rem,6vw,5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
+        <span data-wipe class="relative inline-block"><span data-wipe-text>Right now.</span></span>
+      </h2>
+      <p class="max-w-[24em] text-lg leading-normal">What's on my desk this season. I update it when it changes, roughly.</p>
+    </div>
+    <div class="relative min-w-0 flex-[1.4_1_30rem]">
+      <p
+        class="absolute -top-4.5 right-6 z-1 rotate-3 border-(length:--border-width) border-border bg-primary px-3 py-1 font-mono text-xs font-bold tracking-[0.06em] text-primary-foreground uppercase"
+      >
+        Updated <time datetime={now.updated.datetime}>{now.updated.label}</time>
+      </p>
+      <dl class="flex flex-col border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
+        {
+          now.items.map((item, i) => (
+            <div class:list={['flex flex-wrap gap-x-6 gap-y-2 p-6', i > 0 && 'border-t-(length:--border-width) border-border']}>
+              <dt class="flex-[0_0_7.5rem] pt-1 font-mono text-xs font-bold tracking-[0.06em] uppercase">{item.label}</dt>
+              <dd class="flex-[1_1_16rem] text-[1.1875rem] leading-normal">
+                {item.body}
+                {item.aside && <span class="font-mono text-[0.8125rem]"> {item.aside}</span>}
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </div>
+</section>

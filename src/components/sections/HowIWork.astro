@@ -1,0 +1,26 @@
+---
+import Section from '@/components/ui/Section.astro';
+import Rich from '@/components/ui/Rich.astro';
+import { principles } from '@/data/principles';
+import { toneClasses } from '@/lib/tones';
+---
+
+<Section id="how" chapter={1} label="How I work" aside="// opinions, loosely held, strongly logged">
+  <Fragment slot="heading">How I work.</Fragment>
+  <ul data-stagger class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16.25rem),1fr))] gap-8">
+    {
+      principles.map((principle, i) => (
+        <li class:list={['flex flex-col gap-4 border-(length:--border-width) border-border p-6 shadow-brutal', toneClasses[principle.tone]]}>
+          <span aria-hidden="true" class="font-mono text-[2.5rem] leading-none font-bold tracking-[-0.04em]">
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <h3 class="font-bold text-[1.625rem] leading-[1.05] tracking-[-0.03em]">{principle.title}</h3>
+          <p class="text-[1.0625rem] leading-normal text-pretty">
+            <Rich text={principle.body} />
+          </p>
+          <span class="mt-auto font-mono text-xs font-bold">{principle.note}</span>
+        </li>
+      ))
+    }
+  </ul>
+</Section>

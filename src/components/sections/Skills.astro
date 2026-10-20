@@ -1,0 +1,30 @@
+---
+import Section from '@/components/ui/Section.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { skills } from '@/data/skills';
+---
+
+<Section id="skills" chapter={6} label="Toolbox" aside="// things I reach for, in roughly this order">
+  <Fragment slot="heading">Toolbox.</Fragment>
+  <ul data-stagger class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16.25rem),1fr))] gap-8">
+    {
+      skills.map((group, i) => (
+        <li class="border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
+          <div class="flex justify-between gap-3 border-b-(length:--border-width) border-border bg-muted px-4 py-2.5 font-mono text-xs font-bold tracking-[0.06em] text-foreground uppercase">
+            <h3>{group.category}</h3>
+            <span aria-hidden="true">S/{String(i + 1).padStart(2, '0')}</span>
+          </div>
+          <ul class="flex flex-wrap gap-2 p-4">
+            {group.items.map((item) => (
+              <li>
+                <Badge tone="background" size="md">
+                  {item}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))
+    }
+  </ul>
+</Section>

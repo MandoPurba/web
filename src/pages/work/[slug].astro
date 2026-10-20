@@ -1,0 +1,179 @@
+---
+import type { GetStaticPaths } from 'astro';
+import type { BreadcrumbList, CreativeWork, SoftwareSourceCode } from 'schema-dts';
+import { render } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/sections/Header.astro';
+import Footer from '@/components/sections/Footer.astro';
+import Card from '@/components/ui/Card.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { mdxComponents } from '@/components/mdx';
+import { absoluteUrl } from '@/lib/seo';
+import { getProjects, type Project } from '@/lib/projects';
+import { formatDate } from '@/lib/articles';
+import { keyFacts } from '@/lib/llms';
+
+export const getStaticPaths = (async () => {
+  const projects = await getProjects();
+  return projects.map((project, i) => ({
+    params: { slug: project.id },
+    props: { project, prev: projects[i - 1], next: projects[i + 1] },
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  project: Project;
+  prev?: Project;
+  next?: Project;
+}
+
+const { project, prev, next } = Astro.props;
+const { data } = project;
+const { Content, headings } = await render(project);
+const toc = headings.filter((heading) => heading.depth === 2);
+
+const siteUrl = Astro.site!;
+const pageUrl = absoluteUrl(Astro.url.pathname, siteUrl);
+const workUrl = absoluteUrl('/#work', siteUrl);
+const personRef = { '@id': `${siteUrl.href}#person` };
+
+const work: CreativeWork | SoftwareSourceCode = {
+  '@type': data.repo ? 'SoftwareSourceCode' : 'CreativeWork',
+  '@id': `${pageUrl}#work`,
+  name: data.title,
+  description: data.summary,
+  url: pageUrl,
+  author: personRef,
+  dateModified: data.updatedAt.toISOString().slice(0, 10),
+  inLanguage: 'en',
+  isPartOf: { '@id': `${siteUrl.href}#website` },
+  ...(data.period.start && { dateCreated: data.period.start.toISOString().slice(0, 10) }),
+  keywords: data.stack.join(', '),
+  ...(data.repo && { codeRepository: data.repo }),
+} as CreativeWork | SoftwareSourceCode;
+
+const breadcrumbs: BreadcrumbList = {
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl.href },
+    { '@type': 'ListItem', position: 2, name: 'Work', item: workUrl },
+    { '@type': 'ListItem', position: 3, name: data.title, item: pageUrl },
+  ],
+};
+
+const facts = keyFacts(project);
+const updated = data.updatedAt.toISOString().slice(0, 10);
+
+const container = 'mx-auto max-w-300 px-[clamp(1rem,4vw,2.5rem)]';
+const linkClass = 'underline decoration-(length:--border-width-sm) underline-offset-4 hover:bg-primary hover:text-primary-foreground';
+---
+
+<BaseLayout title={data.title} description={data.summary} type="article" jsonLd={[work, breadcrumbs]}>
+  <link slot="head" rel="alternate" type="text/markdown" href={`/work/${project.id}.md`} title={`${data.title} (Markdown)`} />
+  <Header slot="header" />
+
+  <article class={`${container} py-[clamp(2rem,6vw,4rem)]`}>
+    <nav aria-label="Breadcrumb" class="font-mono text-sm uppercase">
+      <ol class="flex flex-wrap items-center gap-2">
+        <li><a href="/" class={linkClass}>Home</a></li>
+        <li aria-hidden="true">/</li>
+        <li><a href="/#work" class={linkClass}>Work</a></li>
+        <li aria-hidden="true">/</li>
+        <li aria-current="page" class="font-bold">{data.title}</li>
+      </ol>
+    </nav>
+
+    <header class="mt-8 flex flex-col gap-6">
+      <h1 class="font-display text-[clamp(2.25rem,7vw,4.5rem)] leading-[0.95] font-bold tracking-tight break-words uppercase">
+        {data.title}
+      </h1>
+      <p class="font-mono text-xs font-bold tracking-[0.06em] uppercase">
+        Last updated <time datetime={updated}>{formatDate(data.updatedAt)}</time>
+      </p>
+      <h2 class="sr-only">Key facts</h2>
+      <dl class="grid grid-cols-2 gap-(--border-width-sm) border-(length:--border-width) border-border bg-border lg:grid-cols-3">
+        {
+          facts.map(({ label, value }) => (
+            <div class="bg-card px-4 py-3 text-card-foreground">
+              <dt class="font-mono text-xs font-medium text-muted-foreground uppercase">{label}</dt>
+              <dd class="mt-1 font-bold">{value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+
+      {
+        data.metrics.length > 0 && (
+          <ul aria-label="Metrics" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {data.metrics.map(({ value, label }) => (
+              <Card as="li" accent="primary">
+                <span slot="header" class="font-mono text-xs font-medium uppercase">
+                  {label}
+                </span>
+                <p class="font-display text-[clamp(2rem,6vw,3rem)] leading-none font-bold">{value}</p>
+              </Card>
+            ))}
+          </ul>
+        )
+      }
+
+      <ul aria-label="Stack" class="flex flex-wrap gap-2">
+        {
+          data.stack.length > 0 ? (
+            data.stack.map((tech) => (
+              <li>
+                <Badge>{tech}</Badge>
+              </li>
+            ))
+          ) : (
+            <li>
+              <Badge>TODO: stack</Badge>
+            </li>
+          )
+        }
+      </ul>
+    </header>
+
+    <div class="mt-12 grid gap-10 lg:grid-cols-[14rem_1fr]">
+      <nav aria-label="On this page" class="self-start lg:sticky lg:top-24">
+        <p class="font-mono text-xs font-medium text-muted-foreground uppercase">On this page</p>
+        <ol class="mt-3 flex flex-col gap-2 border-l-(length:--border-width) border-border pl-4 text-sm">
+          {
+            toc.map((heading) => (
+              <li>
+                <a href={`#${heading.slug}`} class="hover:bg-primary hover:text-primary-foreground">
+                  {heading.text}
+                </a>
+              </li>
+            ))
+          }
+        </ol>
+      </nav>
+
+      <div class="min-w-0 [&>h2:first-child]:mt-0">
+        <Content components={mdxComponents} />
+      </div>
+    </div>
+
+    {
+      (prev || next) && (
+        <nav aria-label="More projects" class="mt-16 grid gap-6 sm:grid-cols-2">
+          {prev && (
+            <a href={`/work/${prev.id}`} rel="prev" class="block border-(length:--border-width) border-border bg-card p-5 text-card-foreground shadow-brutal-sm transition-[translate,box-shadow] duration-100 ease-out active:translate-x-(--shadow-offset-sm) active:translate-y-(--shadow-offset-sm) active:shadow-none">
+              <span class="font-mono text-xs font-medium uppercase">← Previous</span>
+              <span class="mt-1 block font-display text-lg font-bold">{prev.data.title}</span>
+            </a>
+          )}
+          {next && (
+            <a href={`/work/${next.id}`} rel="next" class="block border-(length:--border-width) border-border bg-card p-5 text-right text-card-foreground shadow-brutal-sm transition-[translate,box-shadow] duration-100 ease-out active:translate-x-(--shadow-offset-sm) active:translate-y-(--shadow-offset-sm) active:shadow-none sm:col-start-2">
+              <span class="font-mono text-xs font-medium uppercase">Next →</span>
+              <span class="mt-1 block font-display text-lg font-bold">{next.data.title}</span>
+            </a>
+          )}
+        </nav>
+      )
+    }
+  </article>
+
+  <Footer slot="footer" />
+</BaseLayout>

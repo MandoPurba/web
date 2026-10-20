@@ -1,0 +1,98 @@
+---
+import type { Graph, Person, ProfilePage, Thing, WebSite } from 'schema-dts';
+import { site } from '@/config/site';
+import { credentials, education } from '@/data/education';
+import { sameAs } from '@/lib/seo';
+
+interface Props {
+  /** Extra nodes (e.g. CreativeWork, BreadcrumbList) appended to the @graph. */
+  nodes?: Exclude<Thing, string>[];
+}
+
+const { nodes = [] } = Astro.props;
+
+const siteUrl = Astro.site!.href;
+const personId = `${siteUrl}#person`;
+const websiteId = `${siteUrl}#website`;
+const isHome = Astro.url.pathname === '/';
+const [studying, ...finished] = education;
+
+const person: Person = {
+  '@type': 'Person',
+  '@id': personId,
+  name: site.name,
+  jobTitle: site.jobTitle,
+  description: site.description,
+  url: siteUrl,
+  email: `mailto:${site.email}`,
+  ...(site.image && { image: new URL(site.image, siteUrl).href }),
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: site.location.locality,
+    addressRegion: site.location.region,
+    addressCountry: site.location.country,
+  },
+  knowsAbout: [...site.knowsAbout],
+  knowsLanguage: site.languages.map((language) => ({
+    '@type': 'Language',
+    name: language.name,
+    alternateName: language.code,
+  })),
+  ...(sameAs.length > 0 && { sameAs }),
+  worksFor: {
+    '@type': 'CollegeOrUniversity',
+    name: site.worksFor.name,
+    url: site.worksFor.url,
+    department: { '@type': 'Organization', name: site.worksFor.department },
+  },
+  // Current studies (in progress) → affiliation; completed schooling → alumniOf.
+  ...(studying?.expected && {
+    affiliation: { '@type': 'CollegeOrUniversity', name: studying.institution },
+  }),
+  ...(finished.length > 0 && {
+    alumniOf: finished.map((school) => ({ '@type': 'EducationalOrganization', name: school.institution })),
+  }),
+  hasCredential: credentials.map((credential) => ({
+    '@type': 'EducationalOccupationalCredential',
+    name: credential.name,
+    credentialCategory: 'certification',
+    recognizedBy: { '@type': 'Organization', name: credential.issuer },
+  })),
+  hasOccupation: {
+    '@type': 'Occupation',
+    name: site.jobTitle,
+    skills: [...site.knowsAbout].join(', '),
+    occupationLocation: { '@type': 'Country', name: site.location.countryName },
+  },
+};
+
+const website: WebSite = {
+  '@type': 'WebSite',
+  '@id': websiteId,
+  url: siteUrl,
+  name: site.name,
+  description: site.description,
+  inLanguage: site.locale,
+  publisher: { '@id': personId },
+};
+
+const profilePage: ProfilePage = {
+  '@type': 'ProfilePage',
+  '@id': `${siteUrl}#profilepage`,
+  url: siteUrl,
+  name: `${site.name} — ${site.jobTitle}`,
+  isPartOf: { '@id': websiteId },
+  mainEntity: { '@id': personId },
+  dateModified: site.updatedAt,
+};
+
+const graph: Graph = {
+  '@context': 'https://schema.org',
+  '@graph': [person, website, ...(isHome ? [profilePage] : []), ...nodes],
+};
+
+// Escape `<` so content can never close the script tag.
+const json = JSON.stringify(graph).replace(/</g, '\\u003c');
+---
+
+<script type="application/ld+json" set:html={json} />

@@ -1,0 +1,24 @@
+---
+import { site, socialLinks } from '@/config/site';
+import { formatDate } from '@/lib/articles';
+
+const year = new Date().getFullYear();
+const links = [
+  ...socialLinks.flatMap(({ label, url }) => (url ? [{ label, url }] : [])),
+  { label: 'llms.txt', url: '/llms.txt' },
+];
+---
+
+<footer class="border-t-(length:--border-width) border-border px-[clamp(1rem,4vw,3rem)] pt-8 pb-24">
+  <div class="mx-auto flex max-w-300 flex-wrap items-center justify-between gap-x-8 gap-y-4 font-mono text-[0.8125rem] font-bold tracking-[0.06em] uppercase">
+    <span class="flex items-center gap-2.5 font-display text-base">
+      <span aria-hidden="true" class="size-3 bg-foreground"></span>
+      {site.name}
+    </span>
+    <span>© {year} · Built by hand in {site.location.locality.split(',')[0]}</span>
+    <span>Last updated <time datetime={site.updatedAt}>{formatDate(new Date(site.updatedAt))}</time></span>
+    <nav aria-label="Footer" class="flex flex-wrap gap-6">
+      {links.map(({ label, url }) => <a href={url} class="link-wipe">{label}</a>)}
+    </nav>
+  </div>
+</footer>

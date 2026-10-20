@@ -1,0 +1,68 @@
+---
+import { site } from '@/config/site';
+
+const links = [
+  { label: 'Work', href: '/#work', chapter: '02' },
+  { label: 'Experience', href: '/#experience', chapter: '05' },
+  { label: 'Writing', href: '/#writing', chapter: '07' },
+];
+const contact = { label: 'Contact', mobileLabel: 'Say hi', href: '/#contact', chapter: '08' };
+const cell = 'border-l-(length:--border-width) border-border';
+---
+
+<header data-m="nav" class="sticky top-0 z-50 px-[clamp(1rem,4vw,3rem)] pt-4">
+  <div class="relative mx-auto max-w-300 border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
+    <div class="flex min-h-15 items-stretch justify-between">
+      <a
+        href="/"
+        class="flex items-center gap-2 border-r-(length:--border-width) border-border bg-primary px-3 text-[0.9375rem] font-bold tracking-[-0.01em] whitespace-nowrap text-primary-foreground uppercase sm:gap-3 sm:px-5 sm:text-[1.0625rem]"
+      >
+        <span aria-hidden="true" class="size-3.5 flex-none bg-primary-foreground"></span>
+        {site.name}
+      </a>
+      <div class="flex items-stretch">
+        <nav aria-label="Primary" class="hidden items-stretch md:flex">
+          {
+            [...links, contact].map(({ label, href }) => (
+              <a
+                href={href}
+                class:list={[cell, 'flex items-center px-5 text-sm font-bold tracking-[0.06em] uppercase hover:bg-primary hover:text-primary-foreground']}
+              >
+                {label}
+              </a>
+            ))
+          }
+        </nav>
+        <details data-menu class="group md:hidden">
+          <summary
+            class:list={[cell, 'flex h-full min-w-18 cursor-pointer list-none items-center justify-center px-3 font-mono text-[0.8125rem] font-bold tracking-[0.06em] uppercase [&::-webkit-details-marker]:hidden']}
+          >
+            <span class="group-open:hidden">Menu</span>
+            <span class="hidden group-open:inline">Close</span>
+          </summary>
+          <nav
+            aria-label="Mobile"
+            data-menu-panel
+            class="absolute -inset-x-1 top-full flex flex-col border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal"
+          >
+            {
+              [...links, { ...contact, label: contact.mobileLabel }].map(({ label, href, chapter }, i, all) => (
+                <a
+                  href={href}
+                  class:list={[
+                    'flex items-center justify-between p-5 text-[1.75rem] font-bold tracking-[-0.02em] active:bg-primary active:text-primary-foreground',
+                    i > 0 && 'border-t-(length:--border-width) border-border',
+                    i === all.length - 1 && 'bg-primary text-primary-foreground',
+                  ]}
+                >
+                  {label}
+                  <span class="font-mono text-[0.8125rem]">{chapter}</span>
+                </a>
+              ))
+            }
+          </nav>
+        </details>
+      </div>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,72 @@
+---
+import type { BlogPosting, CollectionPage, ItemList } from 'schema-dts';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/sections/Header.astro';
+import Footer from '@/components/sections/Footer.astro';
+import Card from '@/components/ui/Card.astro';
+import ArticleCard from '@/components/content/ArticleCard.astro';
+import { site } from '@/config/site';
+import { absoluteUrl } from '@/lib/seo';
+import { getArticles } from '@/lib/articles';
+
+const articles = await getArticles();
+
+const title = 'Writing';
+const description = `Articles by ${site.name} on backend development, published on Medium.`;
+
+const siteUrl = Astro.site!;
+const pageUrl = absoluteUrl(Astro.url.pathname, siteUrl);
+const personRef = { '@id': `${siteUrl.href}#person` };
+
+const itemList: ItemList = {
+  '@type': 'ItemList',
+  numberOfItems: articles.length,
+  itemListElement: articles.map(({ data }, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    item: {
+      '@type': 'BlogPosting',
+      headline: data.title,
+      url: data.url,
+      datePublished: data.publishedAt.toISOString(),
+      author: personRef,
+    } satisfies BlogPosting,
+  })),
+};
+
+const collectionPage: CollectionPage = {
+  '@type': 'CollectionPage',
+  '@id': `${pageUrl}#collection`,
+  url: pageUrl,
+  name: `${title} · ${site.name}`,
+  description,
+  isPartOf: { '@id': `${siteUrl.href}#website` },
+  author: personRef,
+  mainEntity: itemList,
+};
+---
+
+<BaseLayout title={title} description={description} jsonLd={[collectionPage]}>
+  <Header slot="header" />
+  <div class="mx-auto max-w-300 px-[clamp(1rem,4vw,3rem)] py-24">
+    <h1 class="mb-12 border-b-(length:--border-width) border-border pb-5 text-[clamp(2.75rem,6vw,5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
+      Writing
+    </h1>
+    {
+      articles.length > 0 ? (
+        <ul class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,21.25rem),1fr))] gap-8">
+          {articles.map((article, i) => (
+            <li>
+              <ArticleCard article={article} number={articles.length - i} headingLevel={2} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Card class="max-w-xl">
+          <p class="font-mono font-medium uppercase">Articles coming soon</p>
+        </Card>
+      )
+    }
+  </div>
+  <Footer slot="footer" />
+</BaseLayout>
