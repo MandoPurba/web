@@ -7,12 +7,12 @@ import { readThemeColors, type ThemeColors } from '@/lib/theme-colors';
 /**
  * The site mascot: a cat whose box head is a screen. Built from boxes with black outlines and a
  * hard offset shadow, like every card on the site. It behaves like a cat:
- *   - wanders around the screen, rests on spots that don't cover links or buttons, goes home;
+ *   - wanders anywhere on the screen at random, leaving paw prints that fade slowly; goes home now and then;
  *   - looks at the cursor and reacts to links, CTAs, email links, fast scrolling and Writing;
  *   - stroke it (move the cursor back and forth over it): it purrs, gets sleepy and naps;
  *   - now and then the cursor turns into a fish: it chases it and eats it;
- *   - light mode: now and then it walks up to a card and scratches it (or doodles on it);
- *   - dark mode: it carries a flashlight aimed at the cursor; what the beam hits looks light;
+ *   - light mode: now and then it scratches or doodles on a card, or right where it stands;
+ *   - dark mode: it carries a flashlight and looks around with it; what the beam hits looks light;
  *   - click it five times quickly: it grabs the cursor until you shake it off (or press Escape).
  *
  * Units are CSS pixels: an orthographic camera with zoom 1 over a fixed, full-viewport canvas.
@@ -41,15 +41,17 @@ const NAP_FOR = 9;
 const PET = { purr: 450, sleepy: 1500, nap: 2600, decay: 0.35 };
 const SCRATCH_FOR = 1.6;
 const SCRATCH_CHANCE = 0.35;
-/** How long scratch marks and doodles stay on a card. */
-const MARK_FOR = 7;
+/** How long scratch marks and doodles stay. */
+const MARK_FOR = 12;
+/** Paw prints: one every STRIDE px walked; they start fading after a while and fade slowly. */
+const PRINTS = { stride: 26, hold: 2, fade: 7, max: 80 };
+/** Dark mode: how long the flashlight rests on one place before looking elsewhere. */
+const LOOK_AROUND = [2.5, 5] as const;
 const BEAM = { start: 8, spot: 90 };
 const GRAVITY = 2600;
 const CLICKS_TO_ANGER = 5;
 const CLICK_WINDOW = 2.5;
 const GRAB_TIMEOUT = 10;
-/** Where it never rests: anything you might want to click. */
-const INTERACTIVE = 'a, button, input, textarea, select, summary, [data-card], [role="button"]';
 
 type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return';
 type ColorKey = 'case' | 'body' | 'screen' | 'primary';
@@ -149,10 +151,18 @@ interface Brain {
   /** What to do on arrival after a walk. */
   after: 'rest' | 'scratch';
   scratch: ScratchPlan | null;
+  /** Paw prints: distance walked since the last print, and which foot is next. */
+  trail: number;
+  foot: 1 | -1;
+  /** Dark mode: where the flashlight points, and where it is heading. */
+  aim: THREE.Vector2;
+  aimGoal: THREE.Vector2;
+  aimUntil: number;
 }
 
 interface ScratchPlan {
-  card: Element;
+  /** The card to scratch, or null to scratch the page right where it stands. */
+  card: Element | null;
   /** Which side of the card the cat stands on. */
   side: 'left' | 'right';
   stand: THREE.Vector2;
@@ -344,28 +354,13 @@ function boxAt(p: THREE.Vector2) {
   return { left: p.x + BOUNDS.x0 * SCALE, top: p.y - BOUNDS.y1 * SCALE, right: p.x + BOUNDS.x1 * SCALE, bottom: p.y - BOUNDS.y0 * SCALE };
 }
 
-/** A random place to rest that is on screen and doesn't cover anything clickable. */
-function findSpot(vw: number, vh: number): THREE.Vector2 | null {
+/** A random place anywhere on screen (below the header). */
+function findSpot(vw: number, vh: number): THREE.Vector2 {
   const halfW = ((BOUNDS.x1 - BOUNDS.x0) * SCALE) / 2;
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const p = new THREE.Vector2(
-      halfW + 24 + Math.random() * (vw - halfW * 2 - 48),
-      110 + BOUNDS.y1 * SCALE + Math.random() * (vh - 110 - (BOUNDS.y1 - BOUNDS.y0) * SCALE - 24),
-    );
-    const b = boxAt(p);
-    const probes = [
-      [(b.left + b.right) / 2, (b.top + b.bottom) / 2],
-      [b.left + 4, b.top + 4],
-      [b.right - 4, b.top + 4],
-      [b.left + 4, b.bottom - 4],
-      [b.right - 4, b.bottom - 4],
-    ];
-    const blocked = probes.some(([x, y]) =>
-      document.elementsFromPoint(x!, y!).some((el) => !el.closest('[data-mascot]') && el.closest(INTERACTIVE)),
-    );
-    if (!blocked) return p;
-  }
-  return null;
+  return new THREE.Vector2(
+    halfW + 16 + Math.random() * (vw - halfW * 2 - 32),
+    100 + BOUNDS.y1 * SCALE + Math.random() * (vh - 100 - (BOUNDS.y1 - BOUNDS.y0) * SCALE - 20),
+  );
 }
 
 /** Pick a card on screen and a spot beside it where the cat's paw reaches its edge. */
@@ -386,29 +381,64 @@ function planScratch(vw: number, vh: number): ScratchPlan | null {
   return { card, side, stand: new THREE.Vector2(x, bottom + BOUNDS.y0 * SCALE) };
 }
 
-/** Leave scratch marks (or a doodle) on the card; they fade out on their own. */
-function markCard(plan: ScratchPlan, catY: number) {
-  const r = plan.card.getBoundingClientRect();
-  const doodle = Math.random() < 0.3;
-  const x = plan.side === 'left' ? r.left + 14 : r.right - (doodle ? 96 : 54);
-  const y = Math.min(Math.max(catY - 40, r.top + 10), r.bottom - 64);
+const DOODLES = {
+  scratch: [0, 1, 2]
+    .map((i) => `<span class="absolute block h-12 w-1.5 rotate-[24deg] bg-foreground" style="left:${i * 12}px;top:${i * 3}px"></span>`)
+    .join(''),
+  meow: '<span class="inline-block -rotate-12 font-hand text-4xl leading-none text-secondary">meow</span>',
+  heart:
+    '<svg width="44" height="40" viewBox="0 0 11 10" shape-rendering="crispEdges" class="fill-destructive"><path d="M1 0h3v1h1V0h1v0h3v1h1v4H9v1H8v1H7v1H6v1H5V8H4V7H3V6H2V5H1V4H0V1h1z"/></svg>',
+  scribble:
+    '<svg width="64" height="36" viewBox="0 0 64 36" class="fill-none stroke-secondary" stroke-width="4" stroke-linejoin="miter"><polyline points="2,30 12,6 22,30 32,6 42,30 52,6 62,30"/></svg>',
+} as const;
+
+/** Leave a scratch or a doodle (on a card, or on the page where the cat stands); it fades out on its own. */
+function markAt(plan: ScratchPlan, cat: THREE.Vector2) {
+  const kinds = Object.keys(DOODLES) as (keyof typeof DOODLES)[];
+  const kind = Math.random() < 0.45 ? 'scratch' : kinds[1 + Math.floor(Math.random() * (kinds.length - 1))]!;
+  const catBox = boxAt(cat);
+  let x: number;
+  let y: number;
+  if (plan.card) {
+    const r = plan.card.getBoundingClientRect();
+    x = plan.side === 'left' ? r.left + 14 : r.right - 70;
+    y = Math.min(Math.max(cat.y - 40, r.top + 10), r.bottom - 64);
+  } else {
+    x = plan.side === 'left' ? catBox.left - 72 : catBox.right + 8;
+    y = cat.y - 10;
+  }
   const mark = document.createElement('div');
   mark.setAttribute('aria-hidden', 'true');
-  mark.className = 'pointer-events-none absolute z-30 transition-opacity duration-1000';
+  mark.className = 'pointer-events-none absolute z-30 h-[52px] w-[64px] transition-opacity duration-[2000ms]';
   mark.style.left = `${x + scrollX}px`;
   mark.style.top = `${y + scrollY}px`;
-  if (doodle) {
-    mark.innerHTML = '<span class="inline-block -rotate-12 font-hand text-4xl leading-none text-secondary">meow</span>';
-  } else {
-    mark.innerHTML = [0, 1, 2]
-      .map((i) => `<span class="absolute top-0 block h-12 w-1.5 rotate-[24deg] bg-foreground" style="left:${i * 12}px;top:${i * 3}px"></span>`)
-      .join('');
-    mark.style.width = '40px';
-    mark.style.height = '52px';
-  }
+  mark.innerHTML = DOODLES[kind];
   document.body.append(mark);
-  setTimeout(() => (mark.style.opacity = '0'), (MARK_FOR - 1) * 1000);
+  setTimeout(() => (mark.style.opacity = '0'), (MARK_FOR - 2) * 1000);
   setTimeout(() => mark.remove(), MARK_FOR * 1000);
+}
+
+const prints: HTMLElement[] = [];
+const PAW = '<svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges" class="fill-foreground"><rect x="0" y="1" width="1" height="2"/><rect x="2" y="0" width="1" height="2"/><rect x="4" y="0" width="1" height="2"/><rect x="6" y="1" width="1" height="2"/><rect x="1" y="3" width="5" height="4"/></svg>';
+
+/** A paw print on the page (scrolls with it) that stays a moment, then fades slowly. */
+function pawPrint(x: number, y: number) {
+  const el = document.createElement('div');
+  el.setAttribute('aria-hidden', 'true');
+  el.className = 'pointer-events-none absolute z-20 opacity-40';
+  el.style.left = `${x - 7 + scrollX}px`;
+  el.style.top = `${y - 7 + scrollY}px`;
+  el.style.transition = `opacity ${PRINTS.fade}s linear`;
+  el.innerHTML = PAW;
+  document.body.append(el);
+  prints.push(el);
+  if (prints.length > PRINTS.max) prints.shift()?.remove();
+  setTimeout(() => (el.style.opacity = '0'), PRINTS.hold * 1000);
+  setTimeout(() => {
+    el.remove();
+    const i = prints.indexOf(el);
+    if (i >= 0) prints.splice(i, 1);
+  }, (PRINTS.hold + PRINTS.fade) * 1000);
 }
 
 type SetMode = (mode: Mode) => void;
@@ -511,8 +541,9 @@ function Director({
           b.napUntil = t + NAP_FOR;
           setMode('nap');
         } else if (!b.reduced && t > b.restUntil && !b.hoverMascot && b.pet < PET.purr) {
-          // Light mode: sometimes walk up to a card and scratch it.
-          const plan = !b.dark && Math.random() < SCRATCH_CHANCE ? planScratch(vw, vh) : null;
+          // Light mode: sometimes walk up to a card and scratch it, or scratch/doodle right here.
+          const urge = b.dark ? 1 : Math.random();
+          const plan = urge < SCRATCH_CHANCE ? planScratch(vw, vh) : null;
           if (plan) {
             b.scratch = plan;
             b.target.copy(plan.stand);
@@ -520,9 +551,14 @@ function Director({
             setMode('walk');
             break;
           }
-          // Wander: somewhere new, back home, or stay a bit longer.
+          if (urge < SCRATCH_CHANCE + 0.2) {
+            b.scratch = { card: null, side: Math.random() < 0.5 ? 'left' : 'right', stand: b.pos.clone() };
+            setMode('scratch');
+            break;
+          }
+          // Wander: anywhere at random, back home, or stay a bit longer.
           const roll = Math.random();
-          const next = roll < 0.6 ? findSpot(vw, vh) : roll < 0.85 ? home.clone() : null;
+          const next = roll < 0.75 ? findSpot(vw, vh) : roll < 0.9 ? home.clone() : null;
           if (next && next.distanceTo(b.pos) > 40) {
             b.target.copy(next);
             setMode('walk');
@@ -555,7 +591,7 @@ function Director({
       case 'scratch': {
         b.pos.lerp(b.spot, ease(10));
         if (t - b.modeAt > SCRATCH_FOR) {
-          if (b.scratch) markCard(b.scratch, b.pos.y);
+          if (b.scratch) markAt(b.scratch, b.pos);
           b.scratch = null;
           b.restUntil = t + between(REST);
           b.forced = { face: 'happy', until: t + 0.8 };
@@ -656,8 +692,32 @@ function Director({
       if (b.pet > PET.purr && b.mode !== 'nap') purr = Math.sin(t * 70) * 1.2;
     }
 
+    // Paw prints behind it while it walks or runs.
+    if (grounded && speed > 0 && !b.reduced) {
+      b.trail += speed * dt;
+      if (b.trail > PRINTS.stride) {
+        b.trail = 0;
+        b.foot = b.foot === 1 ? -1 : 1;
+        const feet = boxAt(b.pos).bottom - 4;
+        pawPrint(b.pos.x + b.foot * 9, feet + (b.foot === 1 ? 0 : 4));
+      }
+    }
+
+    // Dark mode flashlight: it decides where to look (ahead while walking, else looks around).
+    const flashlight = b.dark && !b.reduced && (b.mode === 'rest' || b.mode === 'walk');
+    if (flashlight) {
+      if (b.mode === 'walk') {
+        b.aimGoal.copy(b.target).sub(b.pos).setLength(320).add(b.pos);
+        b.aimGoal.y += 80;
+      } else if (t > b.aimUntil) {
+        b.aimGoal.set(80 + Math.random() * (vw - 160), 140 + Math.random() * (vh - 220));
+        b.aimUntil = t + between(LOOK_AROUND);
+      }
+      b.aim.lerp(b.aimGoal, 1 - Math.exp(-dt * 2.5));
+    }
+
     // 2. Gaze and face.
-    const target = b.mode === 'chase' ? b.pointer : (b.hoverTarget ?? b.pointer);
+    const target = b.mode === 'chase' ? b.pointer : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
     const lookX = clamp((target.x - b.pos.x) / 450);
     const lookY = clamp((target.y - b.pos.y) / 450);
 
@@ -741,12 +801,12 @@ function Director({
       armL = -0.7;
     }
     // Dark mode: the right paw holds a flashlight aimed at the cursor.
-    p.flash = b.dark && !b.reduced && (b.mode === 'rest' || b.mode === 'walk');
+    p.flash = flashlight;
     if (p.flash) {
       const sx = b.pos.x + SHOULDER.right.x * SCALE;
       const sy = b.pos.y - SHOULDER.right.y * SCALE;
-      // Arm points along (sin θ, -cos θ) in y-up space; the cursor is (dx, dy) in y-down screen space.
-      armR = Math.atan2(b.pointer.x - sx, b.pointer.y - sy);
+      // Arm points along (sin θ, -cos θ) in y-up space; the aim is (dx, dy) in y-down screen space.
+      armR = Math.atan2(b.aim.x - sx, b.aim.y - sy);
     }
     p.armL += (armL - p.armL) * ease(14);
     p.armR += (armR - p.armR) * ease(14);
@@ -758,12 +818,12 @@ function Director({
 
     const { hitbox, cursor, fish, bubble, beam } = layers;
     if (beam.current) {
-      beam.current.style.display = p.flash && b.pointerSeen ? 'block' : 'none';
+      beam.current.style.display = p.flash ? 'block' : 'none';
       if (p.flash) {
         // A blocky cone from the lens to a square spot around the cursor.
         const off = pawOffset(p.armR, 34);
         const a = new THREE.Vector2(b.pos.x + off.x, y + off.y);
-        const c = new THREE.Vector2(b.pointer.x, b.pointer.y);
+        const c = b.aim.clone();
         const dir = c.clone().sub(a);
         if (dir.lengthSq() < 1) dir.set(1, 0);
         dir.normalize();
@@ -867,6 +927,11 @@ export default function Mascot() {
         dark: document.documentElement.classList.contains('dark'),
         after: 'rest',
         scratch: null,
+        trail: 0,
+        foot: 1,
+        aim: new THREE.Vector2(innerWidth / 2, innerHeight / 2),
+        aimGoal: new THREE.Vector2(innerWidth / 2, innerHeight / 2),
+        aimUntil: 0,
       } satisfies Brain;
     })(),
   );
