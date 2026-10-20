@@ -9,7 +9,8 @@ import { experience } from '@/data/experience';
   {
     experience.map((job) => (
       <div class="flex flex-wrap items-start gap-10">
-        <div class="min-w-0 flex-[1_1_17.5rem] border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
+        <div class="flex min-w-0 flex-[1_1_17.5rem] flex-col gap-10 self-stretch">
+        <div class="border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal">
           <p class="border-b-(length:--border-width) border-border bg-foreground px-5 py-2.5 font-mono text-xs font-bold tracking-[0.06em] text-background uppercase">
             <time datetime={job.period.start}>{job.period.label}</time>
           </p>
@@ -18,6 +19,8 @@ import { experience } from '@/data/experience';
             <p class="font-mono text-[0.8125rem] leading-normal">@ {job.org}</p>
             <p class="text-[1.0625rem] leading-normal">{job.summary}</p>
           </div>
+        </div>
+        <div data-scene-anchor="experience" aria-hidden="true" class="pointer-events-none hidden min-h-0 flex-1 lg:block" />
         </div>
         <ol data-timeline class="relative flex min-w-0 flex-[2_1_32.5rem] flex-col gap-10 pl-14">
           <span aria-hidden="true" class="absolute top-4 bottom-4 left-3.5 w-1 bg-background" />

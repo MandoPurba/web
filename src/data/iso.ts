@@ -38,3 +38,9 @@ export const isoLayers: { id: Layer; x: number; label: string; tab: string; note
 ];
 
 export const isoGrid = { x0: -1.5, x1: 7.5, y0: -1.5, y1: 6.8 };
+
+/** Layers each work project lives in; highlighted in the background scene when its card is open in Fig.01. */
+export const projectLayers: Record<string, Layer[]> = {
+  'exam-seat-booking': ['api', 'db'],
+  'graduation-screening-worker': ['queue'],
+};
