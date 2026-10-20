@@ -30,10 +30,7 @@ bunx astro check
 
 ## Architecture rules
 - Sections are `.astro` components → zero JS by default. Motion lives in one bundled script (`src/scripts/motion.ts`) driven by `data-*` hooks.
-- Two canvases at most. The background `<Canvas>`: a decorative scene on the homepage only (`src/components/three/BackgroundScene.tsx`), `position: fixed`, `pointer-events: none`, `aria-hidden`. Hydrated with `client:media="(min-width: 48rem)"` (no scene on mobile) and Three.js is imported when the browser is idle.
-- Layering: the canvas sits at `z-0`, above section backgrounds; section content is `relative z-10`, so cards and text always cover it.
-- Chapters park the graph in empty DOM slots (`[data-scene-anchor="hero|how|work|experience|contact"]`). Each frame the scene measures the slots and morphs between the two around the viewport (scroll-scrubbed): hero orbit around the photo → whole graph → graph with the Fig.01 project's layers lit (`rp:view` event) → vertical stack beside the timeline → one cube beside the contact headline. Never `setState` per frame.
-- Mascot (`src/components/mascot/`): a second, separate canvas on every page (above everything, unlike the background scene) (desktop only, `client:media`, loaded when idle): a fixed, full-viewport, pointer-events-none overlay in CSS-pixel units (orthographic, zoom 1). It never covers content with interactive area except its own hit box; the cursor-grab game blocks clicks only until the user shakes the cursor or presses Escape (10 s timeout). Disabled under reduced motion. Behaviours: wanders anywhere at random, leaving paw prints that fade slowly; stroking → purr → nap; the cursor sometimes becomes a fish it chases and eats (clicks still work); light mode: scratches/doodles (scratch, meow, heart, scribble) on cards or on the page (marks are pointer-events-none and fade); dark mode: carries a flashlight it aims itself (ahead while walking, looks around while resting), the beam inverts the page back to a light look. The R3F wrapper must keep `style={{ pointerEvents: 'none' }}` or the full-screen canvas swallows every click.
+- Mascot (`src/components/mascot/`): the only `<Canvas>` on the site, on every page (desktop only, `client:media`, loaded when idle): a fixed, full-viewport, pointer-events-none overlay in CSS-pixel units (orthographic, zoom 1). It never covers content with interactive area except its own hit box; the cursor-grab game blocks clicks only until the user shakes the cursor or presses Escape (10 s timeout). Disabled under reduced motion. Behaviours: wanders anywhere at random, leaving paw prints that fade slowly; stroking → purr → nap; the cursor sometimes becomes a fish it chases and eats (clicks still work); light mode: scratches/doodles (scratch, meow, heart, scribble) on cards or on the page (marks are pointer-events-none and fade); dark mode: carries a flashlight it aims itself (ahead while walking, looks around while resting), the beam inverts the page back to a light look. The R3F wrapper must keep `style={{ pointerEvents: 'none' }}` or the full-screen canvas swallows every click.
 - Each HTML section = one animation "chapter" (`data-chapter`).
 - All meaningful text lives in HTML, never inside the canvas.
 
@@ -166,14 +163,13 @@ bunx astro check
 - Visible focus ring, WCAG AA contrast.
 
 ## 3D rules
-- Look flat: `MeshToonMaterial` or `MeshBasicMaterial`, solid token colors, black outlines (drei `Edges`).
-- No bloom, blur, gradients, PBR, or organic models. Geometric primitives only.
-- Orthographic isometric camera.
-- Theme: backend systems — service nodes (cubes), connections (lines), data packets moving between them, layers API → queue → database.
-- Perf: `dpr={[1, 1.5]}`, no shadows on mobile, low poly, lazy load after hero text paints.
-- Canvas must never be the LCP element.
-- `prefers-reduced-motion`: no loops, no damping, jump to final state.
-- Static SVG/image fallback for low-end devices / no WebGL.
+- The only 3D on the site is the mascot: a cat with a box head whose front is a pixel screen face (`src/data/mascot.ts`).
+- Look flat: `MeshBasicMaterial`, solid token colors (`--mascot-*`, `--primary`, `--border`), ink side faces, outlines as inverted hulls, a hard offset shadow copy.
+- No bloom, blur, gradients, PBR, or organic models. Geometric primitives (boxes) only.
+- Orthographic front camera in CSS-pixel units (zoom 1).
+- Perf: `dpr={[1, 1.5]}`, desktop only, loaded when the browser is idle; never the LCP element.
+- `prefers-reduced-motion`: no idle motion, wandering, fish, scratching, flashlight or grab game.
+- No WebGL or mobile: no mascot (it's decorative; nothing to fall back to).
 
 ## SEO & GEO
 - Per page: title, description, canonical, Open Graph + Twitter card (OG image 1200×630).
