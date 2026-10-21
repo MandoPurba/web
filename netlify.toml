@@ -1,0 +1,10 @@
+# Netlify resolves its own Bun otherwise (1.3.12), which cannot read this
+# repo's lockfile (lockfileVersion 2) and mis-parses react-dom/server.bun.js.
+# Keep BUN_VERSION equal to the Bun that generated bun.lock (`bun --version`).
+[build]
+  command = "bun run build"
+  publish = "dist"
+
+[build.environment]
+  BUN_VERSION = "1.4.0"
+  NODE_VERSION = "22"
