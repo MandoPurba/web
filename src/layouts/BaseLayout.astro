@@ -42,6 +42,7 @@ const { lang = site.locale, jsonLd, ...seo } = Astro.props;
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content={site.themeColor.dark} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href={spaceGroteskWoff2} as="font" type="font/woff2" crossorigin />
     <SEO {...seo} lang={lang} />
     <JsonLd nodes={jsonLd} />

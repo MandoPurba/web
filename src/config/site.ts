@@ -49,7 +49,7 @@ export const site = {
   image: null as string | null,
   /** Bump when site content changes (no git history to read from). Shown as "Last updated". */
   updatedAt: '2026-10-20',
-  // TODO: add public/og-default.png (1200×630).
+  /** 1200×630, same look as the hero. */
   defaultOgImage: '/og-default.png',
   // Mirrors --background (light/dark) in global.css; <meta name="theme-color"> can't read CSS variables.
   themeColor: {
