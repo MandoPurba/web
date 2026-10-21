@@ -18,13 +18,14 @@ bunx astro check
 ```
 
 ## Stack (decided — do not change without asking)
-- Astro (static output), pnpm, strict TypeScript
+- Astro (static output), bun (`bun.lock` is the only lockfile), strict TypeScript 6 (`astro check` does not support TS 7)
 - Tailwind v4 (`@tailwindcss/vite`), tokens in `@theme`
 - React ONLY as an island for the 3D scene
 - three + @react-three/fiber + @react-three/drei
 - GSAP + ScrollTrigger for scroll-driven animation (no anime.js, no second animation lib)
-- Lenis (optional, smooth scroll) synced via `lenis.on('scroll', ScrollTrigger.update)`
+- No smooth-scroll library: native scrolling only (Lenis was removed as unused)
 - MDX content collections for project case studies
+- OG images for case studies rendered at build time with satori + @resvg/resvg-js (dev deps; fonts read from the `@fontsource/*` `.woff` files, since satori cannot read woff2)
 - Medium articles via RSS at build time (`https://medium.com/feed/@<user>`), parsed with fast-xml-parser. Excerpt + link only, never full article HTML.
 - Deploy: static host (Cloudflare Pages / Vercel) + daily rebuild cron for Medium
 
@@ -45,11 +46,12 @@ bunx astro check
 - Dark mode = `.dark` class on `<html>` overriding the same variables. No `dark:` per-component overrides unless unavoidable.
 
 ## Analytics
+Lives in `src/lib/analytics.ts` (the on/off decision) + `src/components/analytics/{Analytics,ConsentBanner}.astro`, mounted in `BaseLayout`.
 - Google Analytics 4, measurement ID from env `PUBLIC_GA_ID`. Never hardcode.
-- Load ONLY when `import.meta.env.PROD` and `PUBLIC_GA_ID` is set. Never in dev/preview.
-- Load via Partytown (`@astrojs/partytown`, `type="text/partytown"`) → off main thread, must not affect LCP/INP.
+- Load ONLY when `import.meta.env.PROD` and `PUBLIC_GA_ID` is a valid `G-…` ID. Never in dev/preview: the Partytown integration itself is only added in `astro.config.mjs` when that is true (keep the two checks in sync), and the snippet configures nothing on a localhost host, so `bun run preview` sends no hits.
+- Load via Partytown (`@astrojs/partytown`, `type="text/partytown"`) → off main thread, must not affect LCP/INP. `forward: ['dataLayer.push']` is what lets the consent grant reach gtag inside the worker.
 - Consent Mode v2: default `denied` for analytics_storage/ad_storage; grant only after user accepts a minimal consent banner.
-- Banner: static `.astro`, tiny vanilla script, neo-brutalist style, choice stored in localStorage (try/catch).
+- Banner: static `.astro`, tiny vanilla script, neo-brutalist style, choice stored in localStorage under `analytics-consent` (try/catch). Never give its buttons a `data-hint`: the mascot clicks what it hints at, and it must not accept consent for the visitor.
 - No ads features, no ad_user_data/ad_personalization, `anonymize_ip` default.
 - Custom events (later): CTA clicks, outbound links (GitHub/LinkedIn/Medium), project card opens.
 - Analytics must never block rendering or break when blocked by ad blockers.
@@ -173,6 +175,7 @@ bunx astro check
 
 ## SEO & GEO
 - Per page: title, description, canonical, Open Graph + Twitter card (OG image 1200×630).
+- Case studies get their own OG image at `/work/<slug>/og.png`, rendered at build time (`src/lib/og/`). Its colors are parsed out of `global.css` and converted from OKLCH to hex, so tokens stay the only source. Other pages use `/og-default.png`.
 - `@astrojs/sitemap`, `robots.txt` (allow GPTBot, ClaudeBot, PerplexityBot).
 - JSON-LD `Person` with `sameAs` (GitHub, LinkedIn, Medium).
 - `/public/llms.txt` with short factual bio + key links.
@@ -182,7 +185,6 @@ bunx astro check
 
 ## Approved site copy (from the final design, Oct 2026)
 First-person copy in `src/data/*` and project `teaser` frontmatter was approved by the owner with the final design. It adds these claims on top of the facts below — keep them consistent:
-- Open to backend roles.
 - Principles: Postgres is usually enough; fewer moving parts; structured logs with request IDs; idempotent jobs and endpoints.
 - Exam seat booking: owner designed and built the concurrency-safe seat claiming (NestJS + PostgreSQL).
 - Graduation screening: owner wrote the Go worker.
