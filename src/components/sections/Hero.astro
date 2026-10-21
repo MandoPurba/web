@@ -21,13 +21,6 @@ const marks = {
   <div class="mx-auto flex max-w-300 flex-col gap-14">
     <div class="flex flex-wrap items-center gap-x-10 gap-y-12">
       <div class="flex min-w-0 flex-[1_1_36rem] flex-col gap-8">
-        <p
-          data-m="rise"
-          class="inline-flex items-center gap-2.5 self-start border-(length:--border-width-sm) border-border bg-card px-3 py-2 font-mono text-xs font-bold tracking-[0.06em] text-card-foreground uppercase"
-        >
-          <span aria-hidden="true" class="size-2.5 animate-blink border-(length:--border-width-sm) border-border bg-accent"></span>
-          {hero.status}
-        </p>
         <h1 id="hero-title" class="text-[clamp(2.75rem,5.8vw,5.25rem)] leading-[0.98] font-bold tracking-[-0.045em]">
           {
             hero.lines.map((line) => (

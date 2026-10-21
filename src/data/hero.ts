@@ -1,7 +1,6 @@
 import { site } from '@/config/site';
 
 export const hero = {
-  status: 'Open to backend roles',
   /** Headline lines; `mark` is drawn as a highlighted block. */
   lines: [
     { text: 'I make backend' },
