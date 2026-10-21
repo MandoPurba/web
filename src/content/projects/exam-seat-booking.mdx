@@ -35,34 +35,23 @@ It runs on the national university platform serving 800K+ students, built at the
 
 Exam seats are limited per location, date and session, and many students book at the same time. Two concurrent requests must never claim the same seat, and seats held by registrations whose hold expires must return to the pool.
 
-TODO: what the booking flow looked like before.
-
 ## Approach
 
 - **Atomic seat claiming.** A seat is claimed with `FOR UPDATE SKIP LOCKED`: each transaction locks one free seat row and skips rows already locked by other transactions, so concurrent requests take different seats instead of colliding.
 - **2-hour holds.** A claimed seat is held for two hours.
-- **Expired-seat reclaim.** When a hold expires, the seat is reclaimed based on the registration's billing status.
-
-TODO: how expired holds are detected and reclaimed (job, trigger or on-read).
+- **Expired-seat reclaim.** A scheduled job finds holds older than two hours and releases the seats of registrations that haven't been paid; paid registrations keep their seat.
 
 ## Architecture
 
 <SeatBooking class="my-8 border-(length:--border-width) border-border shadow-brutal" />
 
-TODO: services, tables and request flow.
-
 ## Key decisions & trade-offs
 
 - **`SKIP LOCKED` instead of plain `FOR UPDATE`.** Plain `FOR UPDATE` makes concurrent requests wait on the same locked row; `SKIP LOCKED` lets each move on to the next free seat. The trade-off is that seat assignment under contention is not strictly ordered.
-- **Holds instead of immediate confirmation.** TODO: why holds last two hours and why reclaim depends on billing status.
+- **Holds instead of immediate confirmation.** A student gets two hours to pay for the registration, so the seat is held rather than confirmed on the spot. Reclaim looks at billing status because payment is what turns a hold into a booking: unpaid holds go back to the pool, paid ones stay. The trade-off is that a seat can sit unused for up to two hours before it's released.
 
 ## Result
 
 - 857K+ registrations handled.
 - Double booking prevented by atomic seat claiming.
 
-TODO: further outcomes.
-
-## What I'd do differently
-
-TODO

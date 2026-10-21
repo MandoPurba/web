@@ -54,22 +54,18 @@ The redesign as a Go worker on a Postgres-backed queue adds:
 - **Queue:** Postgres-backed job queue.
 - **Worker:** Go service that claims batches and fans out per student.
 - **Grading:** legacy PHP grading servers, called with per-host concurrency limits and timeouts.
-- **Reads:** decision-critical reads go to the primary database; TODO: which reads use replicas.
+- **Reads:** decision-critical reads go to the primary database.
 
 ## Key decisions & trade-offs
 
-- **Postgres as the queue.** TODO: why a Postgres-backed queue was chosen over a separate broker.
+- **Postgres as the queue.** Postgres was already part of the platform, so a Postgres-backed queue adds no new infrastructure to run, and jobs are claimed in the same transactions as the data they work on, so there is no separate broker to keep consistent with the database. The trade-off is that queue load lands on the same database.
 - **Per-host concurrency limits and timeouts.** Each legacy PHP grading server gets its own limit and timeout, so one slow server does not stall the rest. The trade-off is that total throughput is capped by those limits.
 - **Primary reads for decisions.** Decision-critical reads are routed to the primary to avoid replica lag, trading extra load on the primary for consistent results.
-- **Leases over locks held for the whole job.** TODO: lease duration and renewal.
+- **Leases over locks held for the whole job.** A lease expires on its own, so work claimed by a worker that stopped becomes claimable again without anyone releasing it, and no long-running transaction holds locks while a batch runs.
 
 ## Result
 
 - Job claiming and lease behavior are covered by integration tests running in GitLab CI.
 - The Go redesign is in progress.
 
-TODO: outcomes once the redesign ships.
-
-## What I'd do differently
-
-TODO
+Results will be added once the redesign ships.

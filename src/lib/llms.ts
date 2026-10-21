@@ -46,7 +46,8 @@ export function keyFacts(project: Project) {
   return [
     { label: 'Role', value: data.role },
     { label: 'Organisation', value: data.org },
-    { label: 'Period', value: formatPeriod(data.period) },
+    // Left out until the start date is known, rather than showing a placeholder.
+    ...(data.period.start ? [{ label: 'Period', value: formatPeriod(data.period) }] : []),
     { label: 'Stack', value: data.stack.length > 0 ? data.stack.join(', ') : 'TODO' },
     { label: 'Scale', value: data.scale ?? data.metrics.map((m) => `${m.value} ${m.label}`).join(', ') ?? 'TODO' },
     { label: 'Status', value: statusLabels[data.status] },
