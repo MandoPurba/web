@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import * as THREE from 'three';
-import { FACE_COLS, FACE_ROWS, faces, lookingFaces, type Face } from '@/data/mascot';
+import { FACE_COLS, FACE_ROWS, faces, hints, lookingFaces, type Face } from '@/data/mascot';
 import { readThemeColors, type ThemeColors } from '@/lib/theme-colors';
 
 /**
@@ -13,7 +13,9 @@ import { readThemeColors, type ThemeColors } from '@/lib/theme-colors';
  *   - now and then the cursor turns into a fish: it chases it and eats it;
  *   - light mode: now and then it scratches or doodles on a card, or right where it stands;
  *   - dark mode: it carries a flashlight and looks around with it; what the beam hits looks light;
- *   - click it five times quickly: it grabs the cursor until you shake it off (or press Escape).
+ *   - click it five times quickly: it grabs the cursor until you shake it off (or press Escape);
+ *   - tour guide: hover something for a while and it points at it and says what it is;
+ *   - drag it somewhere else: asleep, it sleeps on; awake, it gets angry.
  *
  * Units are CSS pixels: an orthographic camera with zoom 1 over a fixed, full-viewport canvas.
  * The model is authored in "design pixels" (the concept SVG) and drawn at SCALE.
@@ -52,8 +54,12 @@ const GRAVITY = 2600;
 const CLICKS_TO_ANGER = 5;
 const CLICK_WINDOW = 2.5;
 const GRAB_TIMEOUT = 10;
+/** Tour guide: hover this long to get a hint, it stays this long after you leave, and repeats only after `again`. */
+const HINT = { after: 1.2, linger: 2, again: 30 };
+/** Drag: cursor travel (px) before a press becomes a carry, and how long it sulks after an awake carry. */
+const CARRY = { start: 6, sulk: 1.8 };
 
-type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return';
+type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return' | 'guide' | 'carry';
 type ColorKey = 'case' | 'body' | 'screen' | 'primary';
 
 interface BoxSpec {
@@ -158,6 +164,15 @@ interface Brain {
   aim: THREE.Vector2;
   aimGoal: THREE.Vector2;
   aimUntil: number;
+  /** Tour guide: what the cursor rests on and since when, what the cat is explaining, and when it last said what. */
+  hover: { el: Element; since: number } | null;
+  guide: Element | null;
+  guideAt: THREE.Vector2;
+  guideUntil: number;
+  saidAt: WeakMap<Element, number>;
+  /** Drag: where the press started (and the cat's offset from it), whether it was asleep, and a click to swallow. */
+  press: { x: number; y: number; dx: number; dy: number; asleep: boolean } | null;
+  carried: boolean;
 }
 
 interface ScratchPlan {
@@ -354,6 +369,13 @@ function boxAt(p: THREE.Vector2) {
   return { left: p.x + BOUNDS.x0 * SCALE, top: p.y - BOUNDS.y1 * SCALE, right: p.x + BOUNDS.x1 * SCALE, bottom: p.y - BOUNDS.y0 * SCALE };
 }
 
+/** Keeps the whole cat on screen (below the header) when it's put down. */
+function clampSpot(p: THREE.Vector2, vw: number, vh: number) {
+  p.x = clamp(p.x, 8 - BOUNDS.x0 * SCALE, vw - 8 - BOUNDS.x1 * SCALE);
+  p.y = clamp(p.y, 90 + BOUNDS.y1 * SCALE, vh - 8 + BOUNDS.y0 * SCALE);
+  return p;
+}
+
 /** A random place anywhere on screen (below the header). */
 function findSpot(vw: number, vh: number): THREE.Vector2 {
   const halfW = ((BOUNDS.x1 - BOUNDS.x0) * SCALE) / 2;
@@ -473,6 +495,35 @@ function isShake(samples: Brain['samples']) {
   return reversals >= 5 && path >= 800;
 }
 
+/** What the cat says about an element as a tour guide, or null when it has nothing to say. */
+function hintFor(el: Element, dark: boolean): string | null {
+  // The nearest one wins: a link inside a hinted card speaks for itself.
+  const near = el.closest<HTMLElement>('[data-hint], a[href]');
+  if (!near) return null;
+  if (near.dataset.hint) return (dark && near.dataset.hintDark) || near.dataset.hint;
+  const link = near as HTMLAnchorElement;
+  const url = new URL(link.href, location.href);
+  if (url.protocol === 'mailto:') return hints.mail;
+  if (url.origin !== location.origin) {
+    const host = url.hostname.replace(/^www\./, '');
+    return hints.external[host] ?? hints.anyExternal(host);
+  }
+  const here = url.pathname === location.pathname;
+  const label = link.textContent?.trim() ?? '';
+  if (url.hash) {
+    const id = decodeURIComponent(url.hash.slice(1));
+    if (id === 'top' && here) return hints.top;
+    const title = here ? document.getElementById(id)?.querySelector('h1, h2')?.textContent?.trim() : null;
+    return title ? hints.section(title) : here ? null : hints.otherPage(label);
+  }
+  if (url.pathname.startsWith('/work/')) return hints.caseStudy;
+  if (url.pathname === '/writing') return hints.writing;
+  if (url.pathname === '/rss.xml') return hints.rss;
+  if (url.pathname.startsWith('/llms')) return hints.llms;
+  if (url.pathname === '/') return here ? hints.top : hints.home;
+  return null;
+}
+
 interface Layers {
   hitbox: RefObject<HTMLDivElement | null>;
   cursor: RefObject<HTMLDivElement | null>;
@@ -488,12 +539,14 @@ function Director({
   root,
   layers,
   setMode,
+  say,
 }: {
   brain: RefObject<Brain>;
   pose: RefObject<Pose>;
   root: RefObject<THREE.Group | null>;
   layers: Layers;
   setMode: SetMode;
+  say: (text: string | null) => void;
 }) {
   const { size } = useThree();
   const blinkAt = useRef(0);
@@ -531,6 +584,31 @@ function Director({
     ) {
       document.documentElement.dataset.fishCursor = '';
       setMode('chase');
+    }
+
+    // Tour guide: the cursor has rested on something long enough, so it points at it and explains.
+    const h = b.hover;
+    if (
+      h &&
+      h.el !== b.guide &&
+      (b.mode === 'rest' || b.mode === 'walk' || b.mode === 'guide') &&
+      b.pet < PET.purr &&
+      t - h.since > HINT.after &&
+      t - (b.saidAt.get(h.el) ?? -Infinity) > HINT.again
+    ) {
+      b.saidAt.set(h.el, t);
+      const text = hintFor(h.el, b.dark);
+      if (text) {
+        if (b.mode !== 'guide') {
+          b.spot.copy(b.pos);
+          b.after = 'rest';
+          b.forced = { face: 'happy', until: t + 0.5 };
+          setMode('guide');
+        }
+        b.guide = h.el;
+        b.guideUntil = Infinity;
+        say(text);
+      }
     }
 
     switch (b.mode) {
@@ -667,6 +745,31 @@ function Director({
         }
         break;
       }
+      case 'guide': {
+        b.pos.lerp(b.spot, ease(10));
+        // Keep talking while the cursor stays on it; finish the sentence a bit after it leaves.
+        if (b.hover?.el === b.guide) b.guideUntil = Infinity;
+        else if (b.guideUntil === Infinity) b.guideUntil = t + HINT.linger;
+        if (b.guide) {
+          const r = b.guide.getBoundingClientRect();
+          b.guideAt.set(r.left + r.width / 2, r.top + r.height / 2);
+        }
+        if (t > b.guideUntil || b.pet > PET.purr || !b.guide?.isConnected) {
+          b.guide = null;
+          say(null);
+          b.restUntil = t + between(REST);
+          setMode('rest');
+        }
+        break;
+      }
+      case 'carry': {
+        // Hangs from the cursor where it was picked up, swinging a little with the motion.
+        const prev = b.pos.clone();
+        b.pos.lerp(new THREE.Vector2(b.pointer.x + (b.press?.dx ?? 0), b.pointer.y + (b.press?.dy ?? 0)), ease(25));
+        b.vel.copy(b.pos).sub(prev).divideScalar(dt || 1);
+        b.rot += (clamp(b.vel.x * 0.0004, -0.3, 0.3) - b.rot) * ease(8);
+        break;
+      }
       case 'return': {
         b.pos.lerp(home, 1 - Math.exp(-dt * 7));
         if (b.pos.distanceTo(home) < 2) {
@@ -679,7 +782,7 @@ function Director({
     }
 
     const grounded =
-      b.mode === 'rest' || b.mode === 'walk' || b.mode === 'scratch' || b.mode === 'nap' || b.mode === 'eat' || b.mode === 'chase';
+      b.mode === 'rest' || b.mode === 'walk' || b.mode === 'scratch' || b.mode === 'nap' || b.mode === 'eat' || b.mode === 'chase' || b.mode === 'guide';
     if (grounded && !b.reduced) {
       if (speed > 0) {
         b.step += dt * speed * 0.08;
@@ -704,9 +807,10 @@ function Director({
     }
 
     // Dark mode flashlight: it decides where to look (ahead while walking, else looks around).
-    const flashlight = b.dark && !b.reduced && (b.mode === 'rest' || b.mode === 'walk');
+    const flashlight = b.dark && !b.reduced && (b.mode === 'rest' || b.mode === 'walk' || b.mode === 'guide');
     if (flashlight) {
-      if (b.mode === 'walk') {
+      if (b.mode === 'guide') b.aimGoal.copy(b.guideAt);
+      else if (b.mode === 'walk') {
         b.aimGoal.copy(b.target).sub(b.pos).setLength(320).add(b.pos);
         b.aimGoal.y += 80;
       } else if (t > b.aimUntil) {
@@ -717,18 +821,21 @@ function Director({
     }
 
     // 2. Gaze and face.
-    const target = b.mode === 'chase' ? b.pointer : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
+    const target =
+      b.mode === 'chase' ? b.pointer : b.mode === 'guide' ? b.guideAt : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
     const lookX = clamp((target.x - b.pos.x) / 450);
     const lookY = clamp((target.y - b.pos.y) / 450);
 
     let face: Face = 'idle';
     const idleFor = t - b.lastInput;
     if (b.mode === 'grab') face = 'angry';
+    else if (b.mode === 'carry') face = b.press?.asleep ? 'asleep' : 'angry';
     else if (b.mode === 'thrown' || b.mode === 'away') face = 'surprised';
     else if (b.mode === 'return' || t < b.dizzyUntil) face = 'dizzy';
     else if (b.mode === 'eat') face = Math.floor((t - b.modeAt) * 8) % 2 ? 'surprised' : 'happy';
     else if (b.mode === 'chase' || b.mode === 'scratch') face = 'excited';
     else if (b.forced && t < b.forced.until) face = b.forced.face;
+    else if (b.mode === 'guide') face = 'curious';
     else if (b.mode === 'nap') face = 'asleep';
     else if (b.pet > PET.sleepy) face = 'sleepy';
     else if (b.pet > PET.purr) face = 'love';
@@ -738,8 +845,9 @@ function Director({
     else if (b.hoverTarget) face = 'curious';
     else if (t < b.surprisedUntil) face = 'surprised';
     else if (b.reading) face = 'reading';
-    else if (idleFor > 60) face = 'asleep';
-    else if (idleFor > 20) face = 'sleepy';
+    // Dozing off only while it sits still, never on the move.
+    else if (idleFor > 60 && speed === 0) face = 'asleep';
+    else if (idleFor > 20 && speed === 0) face = 'sleepy';
     if (face === 'idle') {
       if (t > blinkAt.current + 3.6) blinkAt.current = t;
       if (t - blinkAt.current < 0.12) face = 'blink';
@@ -766,7 +874,8 @@ function Director({
             ? b.scratch.side === 'left' ? 1 : -1
             : 0;
     p.facing += (Math.sign(Math.round(heading)) * 0.75 - p.facing) * ease(6);
-    p.lie += ((b.mode === 'nap' ? 1 : 0) - p.lie) * ease(5);
+    const lying = b.mode === 'nap' || (b.mode === 'carry' && b.press?.asleep);
+    p.lie += ((lying ? 1 : 0) - p.lie) * ease(5);
     p.tailSpeed = b.mode === 'chase' ? 3 : b.pet > PET.purr ? 0.4 : 1;
 
     const walking = speed > 0 && !b.reduced;
@@ -780,6 +889,10 @@ function Director({
     if (b.mode === 'grab') {
       armR = 2.7;
       armL = -0.9 + Math.sin(t * 22) * 0.45;
+    } else if (b.mode === 'carry') {
+      // Awake: flailing. Asleep: limp.
+      armR = b.press?.asleep ? 0.15 : 1.4 + Math.sin(t * 20) * 0.5;
+      armL = b.press?.asleep ? -0.15 : -1.4 + Math.sin(t * 20 + 1.5) * 0.5;
     } else if (b.mode === 'thrown' || b.mode === 'away') {
       armR = 2.6;
       armL = -2.6;
@@ -794,6 +907,14 @@ function Director({
       const swipe = Math.sin((t - b.modeAt) * 26);
       armR = 1.9 + swipe * 0.7;
       armL = -1.9 + swipe * 0.7;
+    } else if (b.mode === 'guide') {
+      // Points at what it explains, with the paw on that side.
+      const side = b.guideAt.x >= b.pos.x ? 'right' : 'left';
+      const sx = b.pos.x + SHOULDER[side].x * SCALE;
+      const sy = b.pos.y - SHOULDER[side].y * SCALE;
+      const angle = Math.atan2(b.guideAt.x - sx, b.guideAt.y - sy);
+      if (side === 'right') armR = angle;
+      else armL = angle;
     } else if (face === 'happy') {
       armR = 2.5 + Math.sin(t * 14) * 0.35;
     } else if (face === 'excited') {
@@ -845,7 +966,7 @@ function Director({
     if (hitbox.current) {
       const box = boxAt(new THREE.Vector2(b.pos.x, y));
       hitbox.current.style.transform = `translate(${box.left}px, ${box.top}px)`;
-      const touchable = b.mode === 'rest' || b.mode === 'walk' || b.mode === 'nap';
+      const touchable = b.mode === 'rest' || b.mode === 'walk' || b.mode === 'nap' || b.mode === 'guide' || b.mode === 'carry';
       hitbox.current.style.pointerEvents = touchable ? 'auto' : 'none';
     }
     if (cursor.current) {
@@ -860,8 +981,13 @@ function Director({
       fish.current.style.transform = `translate(${fx}px, ${fy}px) scale(${shrink})`;
     }
     if (bubble.current) {
+      // Beside the head, on whichever side has room, and never off screen.
       const box = boxAt(new THREE.Vector2(b.pos.x, y));
-      bubble.current.style.transform = `translate(${box.right - 8}px, ${box.top - 6}px)`;
+      const { offsetWidth: w, offsetHeight: hgt } = bubble.current;
+      const x = box.right - 8 + w < vw - 8 ? box.right - 8 : Math.max(8, box.left + 8 - w);
+      const top = clamp(box.top + 16 - hgt, 8, vh - hgt - 8);
+      bubble.current.style.transform = `translate(${x}px, ${top}px)`;
+      bubble.current.style.visibility = 'visible';
     }
   });
 
@@ -932,6 +1058,13 @@ export default function Mascot() {
         aim: new THREE.Vector2(innerWidth / 2, innerHeight / 2),
         aimGoal: new THREE.Vector2(innerWidth / 2, innerHeight / 2),
         aimUntil: 0,
+        hover: null,
+        guide: null,
+        guideAt: new THREE.Vector2(),
+        guideUntil: 0,
+        saidAt: new WeakMap(),
+        press: null,
+        carried: false,
       } satisfies Brain;
     })(),
   );
@@ -961,6 +1094,7 @@ export default function Mascot() {
   };
   const [mode, setModeState] = useState<Mode>('rest');
   const [colors, setColors] = useState<ThemeColors>(readThemeColors);
+  const [said, say] = useState<string | null>(null);
 
   const setMode: SetMode = (next) => {
     const b = brain.current;
@@ -983,6 +1117,13 @@ export default function Mascot() {
       b.pointer = { x: e.clientX, y: e.clientY };
       b.pointerSeen = true;
       b.lastInput = t;
+      // A press on the cat that moves far enough picks it up.
+      const press = b.press;
+      if (press && b.mode !== 'carry' && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CARRY.start) {
+        press.asleep = b.mode === 'nap';
+        b.guide = null;
+        setMode('carry');
+      }
       // Stroking: cursor travel while it's over the cat.
       if (b.hoverMascot && (b.mode === 'rest' || b.mode === 'walk' || b.mode === 'nap')) b.pet += Math.min(80, Math.hypot(dx, dy));
       if (b.mode !== 'grab') return;
@@ -1004,7 +1145,12 @@ export default function Mascot() {
       return { kind, x: r.left + r.width / 2, y: r.top + r.height / 2 } as const;
     };
     const onOver = (e: MouseEvent) => {
-      b.hoverTarget = classify(e.target as Element);
+      const el = e.target as Element;
+      b.hoverTarget = classify(el);
+      // Tour guide: the thing it would explain, and since when the cursor rests on it.
+      const anchor = el.closest('[data-hint], a[href]');
+      const thing = anchor && !anchor.closest('[data-mascot]') ? anchor : null;
+      if (thing !== b.hover?.el) b.hover = thing ? { el: thing, since: now() } : null;
     };
     const onScroll = () => {
       const t = now();
@@ -1014,6 +1160,8 @@ export default function Mascot() {
       lastScrollAt = t;
       b.lastInput = t;
       b.hoverTarget = null;
+      // Scrolling isn't resting: the guide waits until the page holds still again.
+      if (b.hover) b.hover.since = t;
     };
     const onKey = (e: KeyboardEvent) => {
       b.lastInput = now();
@@ -1047,10 +1195,45 @@ export default function Mascot() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const onPress = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const b = brain.current;
+    if (e.button !== 0 || !['rest', 'walk', 'nap', 'guide'].includes(b.mode)) return;
+    // No text selection while carrying it around.
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    b.press = { x: e.clientX, y: e.clientY, dx: b.pos.x - e.clientX, dy: b.pos.y - e.clientY, asleep: false };
+  };
+
+  const onRelease = () => {
+    const b = brain.current;
+    const t = now();
+    if (b.mode === 'carry') {
+      clampSpot(b.spot.copy(b.pos), innerWidth, innerHeight);
+      b.rot = 0;
+      b.carried = true;
+      if (b.press?.asleep) {
+        // Still asleep: put down gently, it naps on.
+        b.napUntil = Math.max(b.napUntil, t + 3);
+        setMode('nap');
+      } else {
+        // Awake: it didn't ask to be moved.
+        b.forced = { face: 'angry', until: t + CARRY.sulk };
+        b.restUntil = t + CARRY.sulk + between(REST);
+        setMode('rest');
+      }
+    }
+    b.press = null;
+  };
+
   const onClick = () => {
     const b = brain.current;
     const t = now();
     b.lastInput = t;
+    // The click that ends a carry isn't a click on the cat.
+    if (b.carried) {
+      b.carried = false;
+      return;
+    }
     if (b.mode === 'nap') {
       // Woken up.
       b.pet = 0;
@@ -1073,7 +1256,7 @@ export default function Mascot() {
     }
   };
 
-  const flying = mode === 'grab' || mode === 'thrown' || mode === 'away' || mode === 'chase' || mode === 'eat';
+  const flying = mode === 'grab' || mode === 'carry' || mode === 'thrown' || mode === 'away' || mode === 'chase' || mode === 'eat';
 
   return (
     <div data-mascot aria-hidden="true">
@@ -1092,7 +1275,7 @@ export default function Mascot() {
           // R3F makes its own wrapper `pointer-events: auto`; the page underneath must stay clickable.
           style={{ pointerEvents: 'none' }}
         >
-          <Director brain={brain} pose={pose} root={root} layers={layers} setMode={setMode} />
+          <Director brain={brain} pose={pose} root={root} layers={layers} setMode={setMode} say={say} />
           <group ref={root} scale={SCALE}>
             <Model pose={pose} colors={colors} shadow />
             <Model pose={pose} colors={colors} shadow={false} />
@@ -1103,9 +1286,12 @@ export default function Mascot() {
       <div
         ref={layers.hitbox}
         onClick={onClick}
+        onPointerDown={onPress}
+        onPointerUp={onRelease}
+        onPointerCancel={onRelease}
         onPointerEnter={() => void (brain.current.hoverMascot = true)}
         onPointerLeave={() => void (brain.current.hoverMascot = false)}
-        className="fixed top-0 left-0 z-46 cursor-pointer"
+        className={`fixed top-0 left-0 z-46 ${mode === 'carry' ? 'cursor-grabbing' : 'cursor-pointer'}`}
         style={{ width: (BOUNDS.x1 - BOUNDS.x0) * SCALE, height: (BOUNDS.y1 - BOUNDS.y0) * SCALE }}
       />
       {(mode === 'chase' || mode === 'eat') && (
@@ -1113,11 +1299,17 @@ export default function Mascot() {
           <FishCursor />
         </div>
       )}
-      {mode === 'eat' && (
-        <div ref={layers.bubble} className="pointer-events-none fixed top-0 left-0 z-99">
-          <span className="inline-block -rotate-6 border-(length:--border-width-sm) border-border bg-card px-2 font-hand text-2xl leading-tight text-card-foreground shadow-brutal-sm">
-            nom nom
-          </span>
+      {(mode === 'eat' || (mode === 'guide' && said)) && (
+        <div ref={layers.bubble} className="pointer-events-none invisible fixed top-0 left-0 z-99 p-1">
+          {mode === 'eat' ? (
+            <span className="inline-block -rotate-6 border-(length:--border-width-sm) border-border bg-card px-2 font-hand text-2xl leading-tight text-card-foreground shadow-brutal-sm">
+              nom nom
+            </span>
+          ) : (
+            <span className="block w-max max-w-60 -rotate-2 border-(length:--border-width-sm) border-border bg-card px-2.5 py-1 font-hand text-2xl leading-tight text-balance text-card-foreground shadow-brutal-sm">
+              {said}
+            </span>
+          )}
         </div>
       )}
       {mode === 'grab' && (

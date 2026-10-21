@@ -19,6 +19,8 @@ export const hero = {
       { file: 'back', alt: 'profile photo', caption: ['IMG_0002.JPG', '// me, photos'] },
     ],
     flip: 'Flip the photo',
+    /** What the mascot says when you hover the photo for a while. */
+    hint: 'psst. click it: there’s another side of me.',
     sticker: `hi, I'm ${site.name.split(' ')[0]}`,
     tag: `${site.location.timezone} · ${site.location.locality.split(',')[0]}`,
   },

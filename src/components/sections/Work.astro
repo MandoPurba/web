@@ -37,6 +37,7 @@ const initial = views[0];
               <article
                 data-card
                 data-work-card={Artifact ? id : undefined}
+                data-hint={Artifact ? 'click the card: I’ll play it in Fig.01 →' : undefined}
                 data-active={String(id === initial?.id)}
                 class:list={[
                   'border-(length:--border-width) border-border bg-card text-card-foreground shadow-brutal transition-[translate,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
@@ -84,6 +85,7 @@ const initial = views[0];
                       <button
                         type="button"
                         data-view-tab={id}
+                        data-hint="plays this one in Fig.01, on the right →"
                         aria-controls="fig-01"
                         aria-pressed={id === initial?.id ? 'true' : 'false'}
                         class="hidden items-center gap-2 uppercase md:inline-flex aria-pressed:text-secondary dark:aria-pressed:text-accent"
@@ -124,6 +126,7 @@ const initial = views[0];
                 type="button"
                 data-view-tab={view.id}
                 data-note={view.note}
+                data-hint={`shows ${view.tab} in the figure below`}
                 aria-pressed={i === 0 ? 'true' : 'false'}
                 class:list={[
                   'flex-1 bg-card px-2 py-3 font-mono text-xs font-bold tracking-[0.06em] text-card-foreground uppercase aria-pressed:bg-primary aria-pressed:text-primary-foreground',
