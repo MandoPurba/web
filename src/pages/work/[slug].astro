@@ -68,7 +68,13 @@ const container = 'mx-auto max-w-300 px-[clamp(1rem,4vw,2.5rem)]';
 const linkClass = 'underline decoration-(length:--border-width-sm) underline-offset-4 hover:bg-primary hover:text-primary-foreground';
 ---
 
-<BaseLayout title={data.title} description={data.summary} type="article" jsonLd={[work, breadcrumbs]}>
+<BaseLayout
+  title={data.title}
+  description={data.summary}
+  image={`/work/${project.id}/og.png`}
+  type="article"
+  jsonLd={[work, breadcrumbs]}
+>
   <link slot="head" rel="alternate" type="text/markdown" href={`/work/${project.id}.md`} title={`${data.title} (Markdown)`} />
   <Header slot="header" />
 

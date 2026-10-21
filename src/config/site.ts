@@ -23,7 +23,7 @@ export const site = {
   headline:
     'Go, NestJS and PostgreSQL services for a national university platform serving 800K+ students.',
   email: 'prb.romando@gmail.com',
-  // TODO: replace with real profile URLs. Entries left as null are omitted from output.
+  // Entries left as null are omitted from `sameAs` and from the links in the UI.
   social: {
     github: 'https://github.com/MandoPurba',
     linkedin: 'https://www.linkedin.com/in/romando-purba12',
@@ -45,7 +45,10 @@ export const site = {
     url: 'https://www.ut.ac.id',
     department: 'Directorate of Digital Technology (DTD)',
   },
-  /** TODO: absolute-path portrait (e.g. '/romando.jpg'); null keeps `image` out of JSON-LD. */
+  /**
+   * Portrait for JSON-LD `Person.image`, as an absolute path in /public (e.g. '/romando.jpg').
+   * null falls back to the hero photo (`src/assets/hero/front.*`), optimised at build time.
+   */
   image: null as string | null,
   /** Bump when site content changes (no git history to read from). Shown as "Last updated". */
   updatedAt: '2026-10-20',

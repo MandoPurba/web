@@ -1,4 +1,6 @@
 ---
+import type { ImageMetadata } from 'astro';
+import { getImage } from 'astro:assets';
 import type { Graph, Person, ProfilePage, Thing, WebSite } from 'schema-dts';
 import { site } from '@/config/site';
 import { credentials, education } from '@/data/education';
@@ -17,6 +19,13 @@ const websiteId = `${siteUrl}#website`;
 const isHome = Astro.url.pathname === '/';
 const [studying, ...finished] = education;
 
+// Portrait: `site.image` from /public wins; otherwise the hero photo, optimised to a crawler-friendly JPEG.
+const heroPhoto = Object.values(
+  import.meta.glob<{ default: ImageMetadata }>('/src/assets/hero/front.{jpg,jpeg,png,webp,avif}', { eager: true }),
+)[0]?.default;
+const portrait =
+  site.image ?? (heroPhoto ? (await getImage({ src: heroPhoto, width: 760, format: 'jpeg' })).src : null);
+
 const person: Person = {
   '@type': 'Person',
   '@id': personId,
@@ -25,7 +34,7 @@ const person: Person = {
   description: site.description,
   url: siteUrl,
   email: `mailto:${site.email}`,
-  ...(site.image && { image: new URL(site.image, siteUrl).href }),
+  ...(portrait && { image: new URL(portrait, siteUrl).href }),
   address: {
     '@type': 'PostalAddress',
     addressLocality: site.location.locality,
