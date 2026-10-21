@@ -13,9 +13,10 @@ import { readThemeColors, type ThemeColors } from '@/lib/theme-colors';
  *   - now and then the cursor turns into a fish: it chases it and eats it;
  *   - light mode: now and then it scratches or doodles on a card, or right where it stands;
  *   - dark mode: it carries a flashlight and looks around with it; what the beam hits looks light;
- *   - click it five times quickly: it grabs the cursor until you shake it off (or press Escape);
+ *   - annoy it (click it five times quickly, or keep moving it while it's awake): it grabs the cursor
+ *     until you shake it off (or press Escape);
  *   - tour guide: hover something for a while and it points at it and says what it is;
- *   - drag it somewhere else: asleep, it sleeps on; awake, it gets angry.
+ *   - drag it somewhere else: asleep, it sleeps on; awake, it gets angry (and that adds up).
  *
  * Units are CSS pixels: an orthographic camera with zoom 1 over a fixed, full-viewport canvas.
  * The model is authored in "design pixels" (the concept SVG) and drawn at SCALE.
@@ -58,6 +59,8 @@ const GRAB_TIMEOUT = 10;
 const HINT = { after: 1.2, linger: 2, again: 30 };
 /** Drag: cursor travel (px) before a press becomes a carry, and how long it sulks after an awake carry. */
 const CARRY = { start: 6, sulk: 1.8 };
+/** Annoyance: a click counts 1 for CLICK_WINDOW, an awake carry counts 2 for `window`. Angry from `angry`, grabs the cursor at CLICKS_TO_ANGER. */
+const ANNOY = { carry: 2, window: 20, angry: 3 };
 
 type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return' | 'guide' | 'carry';
 type ColorKey = 'case' | 'body' | 'screen' | 'primary';
@@ -147,6 +150,8 @@ interface Brain {
   hoverTarget: { kind: 'cta' | 'mail' | 'link'; x: number; y: number } | null;
   pet: number;
   clicks: number[];
+  /** When it was last moved while awake (it holds a grudge longer than for clicks). */
+  carries: number[];
   forced: { face: Face; until: number } | null;
   hopAt: number;
   surprisedUntil: number;
@@ -1044,6 +1049,7 @@ export default function Mascot() {
         hoverTarget: null,
         pet: 0,
         clicks: [],
+        carries: [],
         forced: null,
         hopAt: -10,
         surprisedUntil: 0,
@@ -1201,7 +1207,27 @@ export default function Mascot() {
     // No text selection while carrying it around.
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    b.carried = false;
     b.press = { x: e.clientX, y: e.clientY, dx: b.pos.x - e.clientX, dy: b.pos.y - e.clientY, asleep: false };
+  };
+
+  /** Records a click or an awake carry and says how annoyed it is now. */
+  const annoy = (kind: 'click' | 'carry') => {
+    const b = brain.current;
+    const t = now();
+    b.clicks = b.clicks.filter((c) => t - c < CLICK_WINDOW);
+    b.carries = b.carries.filter((c) => t - c < ANNOY.window);
+    (kind === 'click' ? b.clicks : b.carries).push(t);
+    const score = b.clicks.length + b.carries.length * ANNOY.carry;
+    if (score >= CLICKS_TO_ANGER && !b.reduced) {
+      // Enough: it grabs the cursor until it's shaken off.
+      b.clicks = [];
+      b.carries = [];
+      b.samples = [];
+      setMode('grab');
+      return 'grab';
+    }
+    return score >= ANNOY.angry ? 'angry' : 'fine';
   };
 
   const onRelease = () => {
@@ -1215,8 +1241,8 @@ export default function Mascot() {
         // Still asleep: put down gently, it naps on.
         b.napUntil = Math.max(b.napUntil, t + 3);
         setMode('nap');
-      } else {
-        // Awake: it didn't ask to be moved.
+      } else if (annoy('carry') !== 'grab') {
+        // Awake: it didn't ask to be moved, and it remembers.
         b.forced = { face: 'angry', until: t + CARRY.sulk };
         b.restUntil = t + CARRY.sulk + between(REST);
         setMode('rest');
@@ -1242,13 +1268,9 @@ export default function Mascot() {
       setMode('rest');
       return;
     }
-    b.clicks = [...b.clicks.filter((c) => t - c < CLICK_WINDOW), t];
-    const n = b.clicks.length;
-    if (n >= CLICKS_TO_ANGER && !b.reduced) {
-      b.clicks = [];
-      b.samples = [];
-      setMode('grab');
-    } else if (n >= 3) {
+    const mood = annoy('click');
+    if (mood === 'grab') return;
+    if (mood === 'angry') {
       b.forced = { face: 'angry', until: t + 0.9 };
     } else {
       b.forced = { face: 'happy', until: t + 0.8 };
