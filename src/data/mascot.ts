@@ -60,6 +60,13 @@ export const hints = {
   nudge: 'still here? it’s clickable, you know.',
   poke: 'ugh. fine, I’ll click it.',
   refuse: 'ugh. that one’s yours to click.',
+  /** Grumbled up close after it clicked for you. */
+  scold: [
+    'look… this one can be clicked.',
+    'see? it clicks. not that hard.',
+    'it’s a button. buttons get clicked.',
+    'next time, click it yourself, ok?',
+  ],
   mail: 'my inbox. I reply, promise.',
   rss: 'RSS feed, for robots and nerds',
   llms: 'this site, written for AI assistants',

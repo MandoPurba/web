@@ -16,7 +16,8 @@ import { readThemeColors, type ThemeColors } from '@/lib/theme-colors';
  *   - annoy it (click it five times quickly, or keep moving it while it's awake): it grabs the cursor
  *     until you shake it off (or press Escape);
  *   - tour guide: hover something for a while and it points at it and says what it is; keep the cursor
- *     there and it says so again now and then, and the third time it walks over and clicks it itself;
+ *     there and it says so again now and then, and the third time it walks over and clicks it itself,
+ *     then comes up to you (grows, walking in place) to grumble about it, and walks away (its back, shrinking);
  *   - drag it somewhere else: asleep, it sleeps on; awake, it gets angry (and that adds up).
  *
  * Units are CSS pixels: an orthographic camera with zoom 1 over a fixed, full-viewport canvas.
@@ -59,13 +60,15 @@ const GRAB_TIMEOUT = 10;
 /** Tour guide: hover this long to get a hint, it stays this long after you leave, and repeats only after `again`. */
 const HINT = { after: 1.2, linger: 2, again: 30, show: 6, repeat: 15, poke: 3 };
 /** Clicking it itself: arm angle at the press, when the click lands and when it's done (s after arriving), give-up time. */
-const POKE = { arm: 2, press: 0.35, done: 1.2, timeout: 10, speed: 1.6 };
+const POKE = { arm: 2, press: 0.35, done: 0.9, timeout: 10, speed: 1.6 };
+/** Grumbling after it clicked for you: how big it gets up close, and how long it comes, talks, turns and goes (s). */
+const SCOLD = { zoom: 2.2, come: 1.4, talk: 3, turn: 0.5, go: 1.6 };
 /** Drag: cursor travel (px) before a press becomes a carry, and how long it sulks after an awake carry. */
 const CARRY = { start: 6, sulk: 1.8 };
 /** Annoyance: a click counts 1 for CLICK_WINDOW, an awake carry counts 2 for `window`. Angry from `angry`, grabs the cursor at CLICKS_TO_ANGER. */
 const ANNOY = { carry: 2, window: 20, angry: 3 };
 
-type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return' | 'guide' | 'carry' | 'poke';
+type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return' | 'guide' | 'carry' | 'poke' | 'scold';
 type ColorKey = 'case' | 'body' | 'screen' | 'primary';
 
 interface BoxSpec {
@@ -182,6 +185,12 @@ interface Brain {
   tell: { el: Element; count: number; nextAt: number } | null;
   /** Clicking it itself: what, and when the paw got there (0 while walking over). */
   poke: { el: HTMLElement; tapAt: number; clicked: boolean } | null;
+  /** What it clicked for you and grumbles about. */
+  scold: HTMLElement | null;
+  /** Size on top of SCALE: above 1 it's closer to you. */
+  zoom: number;
+  /** What the speech bubble says now. */
+  bubble: string | null;
   /** Drag: where the press started (and the cat's offset from it), whether it was asleep, and a click to swallow. */
   press: { x: number; y: number; dx: number; dy: number; asleep: boolean } | null;
   carried: boolean;
@@ -212,8 +221,8 @@ function Box({ spec, colors, shadow }: { spec: BoxSpec; colors: ThemeColors; sha
     // Sides stay black in both themes (like the dark faces of the isometric drawings).
     const ink = new THREE.MeshBasicMaterial({ color: shadow ? colors.border : colors.primaryForeground });
     const front = new THREE.MeshBasicMaterial({ color: shadow ? colors.border : colorOf(spec.color, colors) });
-    // Face order: +x, -x, +y, -y, +z (front), -z.
-    return [ink, ink, ink, ink, front, ink];
+    // Face order: +x, -x, +y, -y, +z (front), -z. The back is colored too: it shows when it walks away.
+    return [ink, ink, ink, ink, front, front];
   }, [colors, shadow, spec.color]);
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
 
@@ -377,15 +386,28 @@ function homeOf(vh: number) {
 }
 
 /** The cat's screen box when its head centre is at `p`. */
-function boxAt(p: THREE.Vector2) {
-  return { left: p.x + BOUNDS.x0 * SCALE, top: p.y - BOUNDS.y1 * SCALE, right: p.x + BOUNDS.x1 * SCALE, bottom: p.y - BOUNDS.y0 * SCALE };
+function boxAt(p: THREE.Vector2, zoom = 1) {
+  const s = SCALE * zoom;
+  return { left: p.x + BOUNDS.x0 * s, top: p.y - BOUNDS.y1 * s, right: p.x + BOUNDS.x1 * s, bottom: p.y - BOUNDS.y0 * s };
 }
 
 /** Keeps the whole cat on screen (below the header) when it's put down. */
-function clampSpot(p: THREE.Vector2, vw: number, vh: number) {
-  p.x = clamp(p.x, 8 - BOUNDS.x0 * SCALE, vw - 8 - BOUNDS.x1 * SCALE);
-  p.y = clamp(p.y, 90 + BOUNDS.y1 * SCALE, vh - 8 + BOUNDS.y0 * SCALE);
+function clampSpot(p: THREE.Vector2, vw: number, vh: number, zoom = 1) {
+  const s = SCALE * zoom;
+  p.x = clamp(p.x, 8 - BOUNDS.x0 * s, vw - 8 - BOUNDS.x1 * s);
+  p.y = clamp(p.y, 90 + BOUNDS.y1 * s, vh - 8 + BOUNDS.y0 * s);
   return p;
+}
+
+/** Where it is in the grumble: coming closer, talking, turning around, or walking away. */
+function scoldPhase(since: number) {
+  if (since < SCOLD.come) return { phase: 'come', k: since / SCOLD.come } as const;
+  since -= SCOLD.come;
+  if (since < SCOLD.talk) return { phase: 'talk', k: since / SCOLD.talk } as const;
+  since -= SCOLD.talk;
+  if (since < SCOLD.turn) return { phase: 'turn', k: since / SCOLD.turn } as const;
+  since -= SCOLD.turn;
+  return { phase: 'go', k: Math.min(1, since / SCOLD.go) } as const;
 }
 
 /** A random place anywhere on screen (below the header). */
@@ -798,7 +820,7 @@ function Director({
         break;
       }
       case 'poke': {
-        // Walks over until its paw is on the thing, presses it, then looks pleased with itself.
+        // Walks over until its paw is on the thing and presses it.
         const k = b.poke;
         const end = () => {
           b.poke = null;
@@ -829,9 +851,36 @@ function Director({
           if (!k.clicked && t - k.tapAt > POKE.press) {
             k.clicked = true;
             k.el.click();
-            b.forced = { face: 'happy', until: t + 1.5 };
           }
-          if (t - k.tapAt > POKE.done) end();
+          if (t - k.tapAt > POKE.done) {
+            // Then it comes over to tell you about it.
+            b.poke = null;
+            b.scold = k.el;
+            say(null);
+            setMode('scold');
+          }
+        }
+        break;
+      }
+      case 'scold': {
+        const { phase, k } = scoldPhase(t - b.modeAt);
+        const smooth = k * k * (3 - 2 * k);
+        // Coming closer is only growing (walking in place); going away is its back, shrinking.
+        b.zoom = phase === 'come' ? 1 + (SCOLD.zoom - 1) * smooth : phase === 'go' ? SCOLD.zoom - (SCOLD.zoom - 1) * smooth : SCOLD.zoom;
+        b.pos.lerp(clampSpot(b.pos.clone(), vw, vh, b.zoom), ease(12));
+        if (phase === 'come' || phase === 'go') speed = WALK_SPEED;
+        if (phase === 'talk' && !b.bubble) say(hints.scold[Math.floor(Math.random() * hints.scold.length)]!);
+        if (phase === 'turn' && b.bubble) say(null);
+        if (b.scold?.isConnected) {
+          const r = b.scold.getBoundingClientRect();
+          b.guideAt.set(r.left + r.width / 2, r.top + r.height / 2);
+        }
+        if (phase === 'go' && k >= 1) {
+          b.zoom = 1;
+          b.scold = null;
+          clampSpot(b.spot.copy(b.pos), vw, vh);
+          b.restUntil = t + between(REST);
+          setMode('rest');
         }
         break;
       }
@@ -855,7 +904,7 @@ function Director({
     }
 
     const grounded =
-      b.mode === 'rest' || b.mode === 'walk' || b.mode === 'scratch' || b.mode === 'nap' || b.mode === 'eat' || b.mode === 'chase' || b.mode === 'guide' || b.mode === 'poke';
+      b.mode === 'rest' || b.mode === 'walk' || b.mode === 'scratch' || b.mode === 'nap' || b.mode === 'eat' || b.mode === 'chase' || b.mode === 'guide' || b.mode === 'poke' || b.mode === 'scold';
     if (grounded && !b.reduced) {
       if (speed > 0) {
         b.step += dt * speed * 0.08;
@@ -869,7 +918,8 @@ function Director({
     }
 
     // Paw prints behind it while it walks or runs.
-    if (grounded && speed > 0 && !b.reduced) {
+    // (Walking in place toward you or away leaves none.)
+    if (grounded && speed > 0 && !b.reduced && b.mode !== 'scold') {
       b.trail += speed * dt;
       if (b.trail > PRINTS.stride) {
         b.trail = 0;
@@ -895,7 +945,7 @@ function Director({
 
     // 2. Gaze and face.
     const target =
-      b.mode === 'chase' ? b.pointer : b.mode === 'guide' || b.mode === 'poke' ? b.guideAt : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
+      b.mode === 'chase' ? b.pointer : b.mode === 'guide' || b.mode === 'poke' || b.mode === 'scold' ? b.guideAt : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
     const lookX = clamp((target.x - b.pos.x) / 450);
     const lookY = clamp((target.y - b.pos.y) / 450);
 
@@ -904,6 +954,7 @@ function Director({
     if (b.mode === 'grab') face = 'angry';
     else if (b.mode === 'carry') face = b.press?.asleep ? 'asleep' : 'angry';
     else if (b.mode === 'poke' && !b.poke?.clicked) face = 'annoyed';
+    else if (b.mode === 'scold') face = scoldPhase(t - b.modeAt).phase === 'talk' ? 'angry' : 'annoyed';
     else if (b.mode === 'thrown' || b.mode === 'away') face = 'surprised';
     else if (b.mode === 'return' || t < b.dizzyUntil) face = 'dizzy';
     else if (b.mode === 'eat') face = Math.floor((t - b.modeAt) * 8) % 2 ? 'surprised' : 'happy';
@@ -952,7 +1003,9 @@ function Director({
           : b.mode === 'scratch' && b.scratch
             ? b.scratch.side === 'left' ? 1 : -1
             : 0;
-    p.facing += (Math.sign(Math.round(heading)) * 0.75 - p.facing) * ease(6);
+    // Walking away from you: it turns its back.
+    const away = b.mode === 'scold' && ['turn', 'go'].includes(scoldPhase(t - b.modeAt).phase);
+    p.facing += ((away ? Math.PI : Math.sign(Math.round(heading)) * 0.75) - p.facing) * ease(6);
     const lying = b.mode === 'nap' || (b.mode === 'carry' && b.press?.asleep);
     p.lie += ((lying ? 1 : 0) - p.lie) * ease(5);
     p.tailSpeed = b.mode === 'chase' ? 3 : b.pet > PET.purr ? 0.4 : 1;
@@ -990,8 +1043,8 @@ function Director({
       // The press: the paw goes in and comes back.
       const k = (t - b.poke.tapAt) / POKE.press;
       armR = POKE.arm + Math.sin(Math.min(1, k) * Math.PI) * 0.3;
-    } else if (b.mode === 'guide') {
-      // Points at what it explains, with the paw on that side.
+    } else if (b.mode === 'guide' || (b.mode === 'scold' && scoldPhase(t - b.modeAt).phase === 'talk')) {
+      // Points at what it explains (or clicked for you), with the paw on that side.
       const side = b.guideAt.x >= b.pos.x ? 'right' : 'left';
       const sx = b.pos.x + SHOULDER[side].x * SCALE;
       const sy = b.pos.y - SHOULDER[side].y * SCALE;
@@ -1018,6 +1071,7 @@ function Director({
     // 4. Write to the scene and the DOM layers.
     const y = b.pos.y + bob + hop + p.lie * 30 * SCALE;
     g.position.set(b.pos.x + purr - vw / 2, vh / 2 - y, 0);
+    g.scale.setScalar(SCALE * b.zoom);
     g.rotation.z = -b.rot;
 
     const { hitbox, cursor, fish, bubble, beam } = layers;
@@ -1047,7 +1101,7 @@ function Director({
       }
     }
     if (hitbox.current) {
-      const box = boxAt(new THREE.Vector2(b.pos.x, y));
+      const box = boxAt(new THREE.Vector2(b.pos.x, y), b.zoom);
       hitbox.current.style.transform = `translate(${box.left}px, ${box.top}px)`;
       const touchable = b.mode === 'rest' || b.mode === 'walk' || b.mode === 'nap' || b.mode === 'guide' || b.mode === 'carry';
       hitbox.current.style.pointerEvents = touchable ? 'auto' : 'none';
@@ -1065,11 +1119,14 @@ function Director({
     }
     if (bubble.current) {
       // Beside the head, on whichever side has room, and never off screen.
-      const box = boxAt(new THREE.Vector2(b.pos.x, y));
-      const { offsetWidth: w, offsetHeight: hgt } = bubble.current;
+      // Up close it talks louder: the bubble grows with it, a bit.
+      const box = boxAt(new THREE.Vector2(b.pos.x, y), b.zoom);
+      const s = 1 + (b.zoom - 1) * 0.4;
+      const w = bubble.current.offsetWidth * s;
+      const hgt = bubble.current.offsetHeight * s;
       const x = box.right - 8 + w < vw - 8 ? box.right - 8 : Math.max(8, box.left + 8 - w);
-      const top = clamp(box.top + 16 - hgt, 8, vh - hgt - 8);
-      bubble.current.style.transform = `translate(${x}px, ${top}px)`;
+      const top = clamp(box.top + 16 * s - hgt, 8, vh - hgt - 8);
+      bubble.current.style.transform = `translate(${x}px, ${top}px) scale(${s})`;
       bubble.current.style.visibility = 'visible';
     }
   });
@@ -1149,6 +1206,9 @@ export default function Mascot() {
         saidAt: new WeakMap(),
         tell: null,
         poke: null,
+        scold: null,
+        zoom: 1,
+        bubble: null,
         press: null,
         carried: false,
       } satisfies Brain;
@@ -1180,7 +1240,11 @@ export default function Mascot() {
   };
   const [mode, setModeState] = useState<Mode>('rest');
   const [colors, setColors] = useState<ThemeColors>(readThemeColors);
-  const [said, say] = useState<string | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
+  const say = (text: string | null) => {
+    brain.current.bubble = text;
+    setSaid(text);
+  };
 
   const setMode: SetMode = (next) => {
     const b = brain.current;
@@ -1358,7 +1422,7 @@ export default function Mascot() {
     }
   };
 
-  const flying = mode === 'grab' || mode === 'carry' || mode === 'thrown' || mode === 'away' || mode === 'chase' || mode === 'eat';
+  const flying = mode === 'grab' || mode === 'carry' || mode === 'scold' || mode === 'thrown' || mode === 'away' || mode === 'chase' || mode === 'eat';
 
   return (
     <div data-mascot aria-hidden="true">
@@ -1401,8 +1465,8 @@ export default function Mascot() {
           <FishCursor />
         </div>
       )}
-      {(mode === 'eat' || ((mode === 'guide' || mode === 'poke') && said)) && (
-        <div ref={layers.bubble} className="pointer-events-none invisible fixed top-0 left-0 z-99 p-1">
+      {(mode === 'eat' || ((mode === 'guide' || mode === 'poke' || mode === 'scold') && said)) && (
+        <div ref={layers.bubble} className="pointer-events-none invisible fixed top-0 left-0 z-99 origin-top-left p-1">
           {mode === 'eat' ? (
             <span className="inline-block -rotate-6 border-(length:--border-width-sm) border-border bg-card px-2 font-hand text-2xl leading-tight text-card-foreground shadow-brutal-sm">
               nom nom
