@@ -8,7 +8,7 @@ export const hero = {
     { text: 'systems', mark: { text: 'boring', tone: 'primary' } },
     { text: '— in a', mark: { text: 'good way.', tone: 'secondary' } },
   ],
-  lede: "I care about the parts nobody demos: queues that don't drop jobs, writes that don't collide, and logs that make sense at 2 a.m.",
+  lede: "I like building the parts of software nobody sees: data that stays correct, systems that hold up under load, and code the next person can actually read.",
   primaryCta: { label: 'See what I built →', href: '#work', hint: 'the good stuff: systems I built at work' },
   secondaryCta: { label: 'Say hi', href: '#contact', hint: 'all the ways to reach me. I don’t bite.' },
   note: '← start here',
