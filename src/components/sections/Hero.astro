@@ -57,8 +57,8 @@ const marks = {
           <span class="mr-2 font-mono text-xs font-bold tracking-[0.06em] uppercase">TL;DR</span>{tldr}
         </p>
         <div data-m="rise" class="flex flex-wrap items-center gap-4">
-          <Button href={hero.primaryCta.href}>{hero.primaryCta.label}</Button>
-          <Button href={hero.secondaryCta.href} variant="secondary">{hero.secondaryCta.label}</Button>
+          <Button href={hero.primaryCta.href} data-hint={hero.primaryCta.hint}>{hero.primaryCta.label}</Button>
+          <Button href={hero.secondaryCta.href} data-hint={hero.secondaryCta.hint} variant="secondary">{hero.secondaryCta.label}</Button>
           <span aria-hidden="true" class="-rotate-4 font-hand text-[1.625rem] leading-none">{hero.note}</span>
         </div>
       </div>
@@ -68,6 +68,8 @@ const marks = {
           type="button"
           data-flip
           data-hint={hero.photo.hint}
+          data-hint-more={hero.photo.hintMore.join('|')}
+          data-no-poke
           aria-pressed="false"
           aria-label={hero.photo.flip}
           class="group block w-full rotate-[1.5deg] cursor-pointer text-left perspective-[1400px]"

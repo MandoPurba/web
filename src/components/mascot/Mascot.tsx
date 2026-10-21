@@ -15,7 +15,8 @@ import { readThemeColors, type ThemeColors } from '@/lib/theme-colors';
  *   - dark mode: it carries a flashlight and looks around with it; what the beam hits looks light;
  *   - annoy it (click it five times quickly, or keep moving it while it's awake): it grabs the cursor
  *     until you shake it off (or press Escape);
- *   - tour guide: hover something for a while and it points at it and says what it is;
+ *   - tour guide: hover something for a while and it points at it and says what it is; keep the cursor
+ *     there and it says so again now and then, and the third time it walks over and clicks it itself;
  *   - drag it somewhere else: asleep, it sleeps on; awake, it gets angry (and that adds up).
  *
  * Units are CSS pixels: an orthographic camera with zoom 1 over a fixed, full-viewport canvas.
@@ -56,13 +57,15 @@ const CLICKS_TO_ANGER = 5;
 const CLICK_WINDOW = 2.5;
 const GRAB_TIMEOUT = 10;
 /** Tour guide: hover this long to get a hint, it stays this long after you leave, and repeats only after `again`. */
-const HINT = { after: 1.2, linger: 2, again: 30 };
+const HINT = { after: 1.2, linger: 2, again: 30, show: 6, repeat: 15, poke: 3 };
+/** Clicking it itself: arm angle at the press, when the click lands and when it's done (s after arriving), give-up time. */
+const POKE = { arm: 2, press: 0.35, done: 1.2, timeout: 10, speed: 1.6 };
 /** Drag: cursor travel (px) before a press becomes a carry, and how long it sulks after an awake carry. */
 const CARRY = { start: 6, sulk: 1.8 };
 /** Annoyance: a click counts 1 for CLICK_WINDOW, an awake carry counts 2 for `window`. Angry from `angry`, grabs the cursor at CLICKS_TO_ANGER. */
 const ANNOY = { carry: 2, window: 20, angry: 3 };
 
-type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return' | 'guide' | 'carry';
+type Mode = 'rest' | 'walk' | 'scratch' | 'nap' | 'chase' | 'eat' | 'grab' | 'thrown' | 'away' | 'return' | 'guide' | 'carry' | 'poke';
 type ColorKey = 'case' | 'body' | 'screen' | 'primary';
 
 interface BoxSpec {
@@ -175,6 +178,10 @@ interface Brain {
   guideAt: THREE.Vector2;
   guideUntil: number;
   saidAt: WeakMap<Element, number>;
+  /** How many times it has told you about what the cursor still rests on, and when it says so again. */
+  tell: { el: Element; count: number; nextAt: number } | null;
+  /** Clicking it itself: what, and when the paw got there (0 while walking over). */
+  poke: { el: HTMLElement; tapAt: number; clicked: boolean } | null;
   /** Drag: where the press started (and the cat's offset from it), whether it was asleep, and a click to swallow. */
   press: { x: number; y: number; dx: number; dy: number; asleep: boolean } | null;
   carried: boolean;
@@ -529,6 +536,14 @@ function hintFor(el: Element, dark: boolean): string | null {
   return null;
 }
 
+/** Whether the cat may click it itself: anything but a link that leaves the page, or what says `data-no-poke`. */
+function canPoke(el: Element): el is HTMLElement {
+  if (!(el instanceof HTMLElement) || el.hasAttribute('data-no-poke')) return false;
+  if (!(el instanceof HTMLAnchorElement)) return true;
+  const url = new URL(el.href, location.href);
+  return url.origin === location.origin && url.pathname === location.pathname && !!url.hash;
+}
+
 interface Layers {
   hitbox: RefObject<HTMLDivElement | null>;
   cursor: RefObject<HTMLDivElement | null>;
@@ -592,18 +607,34 @@ function Director({
     }
 
     // Tour guide: the cursor has rested on something long enough, so it points at it and explains.
+    // If it stays there, it says so again now and then, and the third time it clicks it itself.
     const h = b.hover;
-    if (
-      h &&
-      h.el !== b.guide &&
-      (b.mode === 'rest' || b.mode === 'walk' || b.mode === 'guide') &&
-      b.pet < PET.purr &&
-      t - h.since > HINT.after &&
-      t - (b.saidAt.get(h.el) ?? -Infinity) > HINT.again
-    ) {
+    if (b.tell && b.tell.el !== h?.el) b.tell = null;
+    const due =
+      !!h && (b.tell ? t > b.tell.nextAt : t - h.since > HINT.after && t - (b.saidAt.get(h.el) ?? -Infinity) > HINT.again);
+    if (h && due && (b.mode === 'rest' || b.mode === 'walk' || b.mode === 'guide') && b.pet < PET.purr) {
       b.saidAt.set(h.el, t);
-      const text = hintFor(h.el, b.dark);
-      if (text) {
+      const count = (b.tell?.count ?? 0) + 1;
+      const fedUp = count >= HINT.poke;
+      // An element can bring its own follow-ups (`data-hint-more`, split on `|`) instead of the nudges.
+      const more = (h.el as HTMLElement).dataset?.hintMore?.split('|');
+      const text =
+        count === 1
+          ? hintFor(h.el, b.dark)
+          : more
+            ? (more[Math.min(count, HINT.poke) - 2] ?? null)
+            : !fedUp
+              ? hints.nudge
+              : canPoke(h.el)
+                ? hints.poke
+                : hints.refuse;
+      b.tell = text ? { el: h.el, count, nextAt: fedUp ? Infinity : t + HINT.repeat } : null;
+      if (text && fedUp && canPoke(h.el)) {
+        b.guide = null;
+        b.poke = { el: h.el, tapAt: 0, clicked: false };
+        say(text);
+        setMode('poke');
+      } else if (text) {
         if (b.mode !== 'guide') {
           b.spot.copy(b.pos);
           b.after = 'rest';
@@ -611,7 +642,7 @@ function Director({
           setMode('guide');
         }
         b.guide = h.el;
-        b.guideUntil = Infinity;
+        b.guideUntil = t + HINT.show;
         say(text);
       }
     }
@@ -752,9 +783,8 @@ function Director({
       }
       case 'guide': {
         b.pos.lerp(b.spot, ease(10));
-        // Keep talking while the cursor stays on it; finish the sentence a bit after it leaves.
-        if (b.hover?.el === b.guide) b.guideUntil = Infinity;
-        else if (b.guideUntil === Infinity) b.guideUntil = t + HINT.linger;
+        // Talks for a while, or until a bit after the cursor leaves.
+        if (b.hover?.el !== b.guide) b.guideUntil = Math.min(b.guideUntil, t + HINT.linger);
         if (b.guide) {
           const r = b.guide.getBoundingClientRect();
           b.guideAt.set(r.left + r.width / 2, r.top + r.height / 2);
@@ -764,6 +794,44 @@ function Director({
           say(null);
           b.restUntil = t + between(REST);
           setMode('rest');
+        }
+        break;
+      }
+      case 'poke': {
+        // Walks over until its paw is on the thing, presses it, then looks pleased with itself.
+        const k = b.poke;
+        const end = () => {
+          b.poke = null;
+          say(null);
+          clampSpot(b.spot.copy(b.pos), vw, vh);
+          b.restUntil = t + between(REST);
+          setMode('rest');
+        };
+        if (!k || !k.el.isConnected || t - b.modeAt > POKE.timeout) {
+          end();
+          break;
+        }
+        if (!k.clicked) {
+          const r = k.el.getBoundingClientRect();
+          b.guideAt.set(r.left + r.width / 2, r.top + r.height / 2);
+        }
+        const stand = b.guideAt.clone().sub(pawOffset(POKE.arm));
+        if (!k.tapAt) {
+          const to = stand.clone().sub(b.pos);
+          const dist = to.length();
+          if (dist < 3) k.tapAt = t;
+          else {
+            speed = WALK_SPEED * POKE.speed;
+            b.pos.addScaledVector(to.normalize(), Math.min(dist, speed * dt));
+          }
+        } else {
+          if (!k.clicked) b.pos.lerp(stand, ease(10));
+          if (!k.clicked && t - k.tapAt > POKE.press) {
+            k.clicked = true;
+            k.el.click();
+            b.forced = { face: 'happy', until: t + 1.5 };
+          }
+          if (t - k.tapAt > POKE.done) end();
         }
         break;
       }
@@ -787,7 +855,7 @@ function Director({
     }
 
     const grounded =
-      b.mode === 'rest' || b.mode === 'walk' || b.mode === 'scratch' || b.mode === 'nap' || b.mode === 'eat' || b.mode === 'chase' || b.mode === 'guide';
+      b.mode === 'rest' || b.mode === 'walk' || b.mode === 'scratch' || b.mode === 'nap' || b.mode === 'eat' || b.mode === 'chase' || b.mode === 'guide' || b.mode === 'poke';
     if (grounded && !b.reduced) {
       if (speed > 0) {
         b.step += dt * speed * 0.08;
@@ -827,7 +895,7 @@ function Director({
 
     // 2. Gaze and face.
     const target =
-      b.mode === 'chase' ? b.pointer : b.mode === 'guide' ? b.guideAt : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
+      b.mode === 'chase' ? b.pointer : b.mode === 'guide' || b.mode === 'poke' ? b.guideAt : flashlight ? b.aim : (b.hoverTarget ?? b.pointer);
     const lookX = clamp((target.x - b.pos.x) / 450);
     const lookY = clamp((target.y - b.pos.y) / 450);
 
@@ -835,11 +903,15 @@ function Director({
     const idleFor = t - b.lastInput;
     if (b.mode === 'grab') face = 'angry';
     else if (b.mode === 'carry') face = b.press?.asleep ? 'asleep' : 'angry';
+    else if (b.mode === 'poke' && !b.poke?.clicked) face = 'annoyed';
     else if (b.mode === 'thrown' || b.mode === 'away') face = 'surprised';
     else if (b.mode === 'return' || t < b.dizzyUntil) face = 'dizzy';
     else if (b.mode === 'eat') face = Math.floor((t - b.modeAt) * 8) % 2 ? 'surprised' : 'happy';
     else if (b.mode === 'chase' || b.mode === 'scratch') face = 'excited';
     else if (b.forced && t < b.forced.until) face = b.forced.face;
+    else if (b.mode === 'guide' && (b.tell?.count ?? 0) >= HINT.poke)
+      // Fed up, unless it's only teasing (its own follow-ups): then a wink.
+      face = (b.tell?.el as HTMLElement | undefined)?.dataset.hintMore ? 'wink' : 'annoyed';
     else if (b.mode === 'guide') face = 'curious';
     else if (b.mode === 'nap') face = 'asleep';
     else if (b.pet > PET.sleepy) face = 'sleepy';
@@ -875,6 +947,8 @@ function Director({
         ? b.target.x - b.pos.x
         : b.mode === 'chase'
           ? b.pointer.x - b.pos.x
+          : b.mode === 'poke' && !b.poke?.tapAt
+            ? b.guideAt.clone().sub(pawOffset(POKE.arm)).x - b.pos.x
           : b.mode === 'scratch' && b.scratch
             ? b.scratch.side === 'left' ? 1 : -1
             : 0;
@@ -912,6 +986,10 @@ function Director({
       const swipe = Math.sin((t - b.modeAt) * 26);
       armR = 1.9 + swipe * 0.7;
       armL = -1.9 + swipe * 0.7;
+    } else if (b.mode === 'poke' && b.poke?.tapAt) {
+      // The press: the paw goes in and comes back.
+      const k = (t - b.poke.tapAt) / POKE.press;
+      armR = POKE.arm + Math.sin(Math.min(1, k) * Math.PI) * 0.3;
     } else if (b.mode === 'guide') {
       // Points at what it explains, with the paw on that side.
       const side = b.guideAt.x >= b.pos.x ? 'right' : 'left';
@@ -1069,6 +1147,8 @@ export default function Mascot() {
         guideAt: new THREE.Vector2(),
         guideUntil: 0,
         saidAt: new WeakMap(),
+        tell: null,
+        poke: null,
         press: null,
         carried: false,
       } satisfies Brain;
@@ -1321,7 +1401,7 @@ export default function Mascot() {
           <FishCursor />
         </div>
       )}
-      {(mode === 'eat' || (mode === 'guide' && said)) && (
+      {(mode === 'eat' || ((mode === 'guide' || mode === 'poke') && said)) && (
         <div ref={layers.bubble} className="pointer-events-none invisible fixed top-0 left-0 z-99 p-1">
           {mode === 'eat' ? (
             <span className="inline-block -rotate-6 border-(length:--border-width-sm) border-border bg-card px-2 font-hand text-2xl leading-tight text-card-foreground shadow-brutal-sm">

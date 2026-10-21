@@ -9,8 +9,8 @@ export const hero = {
     { text: '— in a', mark: { text: 'good way.', tone: 'secondary' } },
   ],
   lede: "I care about the parts nobody demos: queues that don't drop jobs, writes that don't collide, and logs that make sense at 2 a.m.",
-  primaryCta: { label: 'See what I built →', href: '#work' },
-  secondaryCta: { label: 'Say hi', href: '#contact' },
+  primaryCta: { label: 'See what I built →', href: '#work', hint: 'the good stuff: systems I built at work' },
+  secondaryCta: { label: 'Say hi', href: '#contact', hint: 'all the ways to reach me. I don’t bite.' },
   note: '← start here',
   photo: {
     /** Flip card: two photos, `front.*` and `back.*` in src/assets/hero/ (4:5). */
@@ -21,6 +21,8 @@ export const hero = {
     flip: 'Flip the photo',
     /** What the mascot says when you hover the photo for a while. */
     hint: 'psst. click it: there’s another side of me.',
+    /** Said if the cursor stays on the photo. It never flips it for you: you have to be curious enough. */
+    hintMore: ['the back has something the front doesn’t.', 'nope, not flipping it for you. go on, see for yourself.'],
     sticker: `hi, I'm ${site.name.split(' ')[0]}`,
     tag: `${site.location.timezone} · ${site.location.locality.split(',')[0]}`,
   },
