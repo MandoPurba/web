@@ -13,28 +13,22 @@ draft: true
 
 ## Context
 
-Universitas Terbuka's legacy Laravel services were migrated to NestJS and Go within the first year at the Directorate of Digital Technology (DTD).
-
-## Problem
-
-TODO
+Universitas Terbuka's legacy Laravel services were migrated to NestJS and Go within my first year at the Directorate of Digital Technology (DTD).
 
 ## Approach
 
-TODO
-
-## Architecture
-
-TODO
-
-## Key decisions & trade-offs
-
-TODO
+I moved the services one piece at a time rather than rewriting everything at once: each slice was migrated on its own, so the legacy Laravel code and the new NestJS and Go services ran side by side while the move was in progress.
 
 ## Result
 
-TODO
+The migration finished inside my first year at DTD.
 
-## What I'd do differently
+## TODO
 
-TODO
+Everything below needs facts I don't have yet — nothing here is invented, so the page stays a draft until these are filled in:
+
+- `period`: the months the migration actually ran.
+- Problem: why the Laravel services had to go, in concrete terms.
+- Which services went to NestJS, which went to Go, and why each.
+- How traffic was cut over per slice, and how a bad slice could be rolled back.
+- Result: a real number (services moved, response times, incidents).
