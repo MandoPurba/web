@@ -1,0 +1,28 @@
+---
+/**
+ * GA4 loaded through Partytown (off the main thread), with Consent Mode v2 defaulting to denied.
+ * Nothing is rendered unless this is a production build with a valid `PUBLIC_GA_ID`.
+ * The grant comes from ConsentBanner.astro; if the request is blocked, the page is unaffected.
+ */
+import { analyticsEnabled, gaId } from '@/lib/analytics';
+
+// Runs inside the Partytown worker: queue consent + config before gtag.js arrives.
+// No ads features: ad_storage stays denied and Google signals are off.
+const bootstrap = `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+// A local preview serves the production build: configure nothing there, so it never sends hits.
+if (!/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(location.hostname)) {
+  gtag('consent', 'default', { ad_storage: 'denied', analytics_storage: 'denied', wait_for_update: 500 });
+  gtag('js', new Date());
+  gtag('config', ${JSON.stringify(gaId)}, { anonymize_ip: true, allow_google_signals: false, allow_ad_personalization_signals: false });
+}`;
+---
+
+{
+  analyticsEnabled && (
+    <>
+      <script type="text/partytown" is:inline set:html={bootstrap} />
+      <script type="text/partytown" is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+    </>
+  )
+}

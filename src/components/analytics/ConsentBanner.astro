@@ -1,0 +1,72 @@
+---
+/**
+ * Minimal consent banner: static markup, hidden until a tiny inline script finds no stored choice.
+ * Fixed-position so it can never shift layout (CLS), and only rendered when analytics is on.
+ * No `data-hint` anywhere: the mascot pokes buttons it is given hints for, and it must never
+ * accept consent on the visitor's behalf.
+ */
+import { analyticsEnabled, consent, consentKey } from '@/lib/analytics';
+---
+
+{
+  analyticsEnabled && (
+    <>
+      <aside
+        data-consent
+        hidden
+        aria-label="Analytics consent"
+        class="fixed bottom-20 left-4 z-50 flex w-[min(26rem,calc(100vw-2rem))] flex-col gap-3 border-(length:--border-width) border-border bg-card p-5 text-card-foreground shadow-brutal md:bottom-6 md:left-6"
+      >
+        <p class="font-mono text-[0.8125rem] font-bold tracking-[0.06em] uppercase">{consent.title}</p>
+        <p class="text-sm leading-relaxed text-muted-foreground">{consent.body}</p>
+        <div class="flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            data-consent-action="accept"
+            class="inline-flex items-center justify-center border-(length:--border-width-sm) border-border bg-primary px-4 py-2.5 font-mono text-[0.8125rem] font-bold tracking-[0.06em] text-primary-foreground uppercase shadow-brutal-sm transition-[box-shadow,translate] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] active:translate-x-(--shadow-offset-sm) active:translate-y-(--shadow-offset-sm) active:shadow-none"
+          >
+            {consent.accept}
+          </button>
+          <button
+            type="button"
+            data-consent-action="decline"
+            class="inline-flex items-center justify-center border-(length:--border-width-sm) border-border bg-card px-4 py-2.5 font-mono text-[0.8125rem] font-bold tracking-[0.06em] text-card-foreground uppercase shadow-brutal-sm transition-[box-shadow,translate] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] active:translate-x-(--shadow-offset-sm) active:translate-y-(--shadow-offset-sm) active:shadow-none"
+          >
+            {consent.decline}
+          </button>
+        </div>
+      </aside>
+      <script is:inline define:vars={{ consentKey }}>
+        (() => {
+          const banner = document.querySelector('[data-consent]');
+          if (!banner) return;
+          const read = () => {
+            try {
+              return localStorage.getItem(consentKey);
+            } catch {
+              return null;
+            }
+          };
+          // Forwarded into the Partytown worker by `forward: ['dataLayer.push']`.
+          const grant = () => {
+            window.dataLayer = window.dataLayer || [];
+            window.dataLayer.push(['consent', 'update', { analytics_storage: 'granted' }]);
+          };
+          const stored = read();
+          if (stored === 'granted') return grant();
+          if (stored === 'denied') return;
+          banner.hidden = false;
+          banner.addEventListener('click', (event) => {
+            const action = event.target.closest('[data-consent-action]')?.dataset.consentAction;
+            if (!action) return;
+            try {
+              localStorage.setItem(consentKey, action === 'accept' ? 'granted' : 'denied');
+            } catch {}
+            if (action === 'accept') grant();
+            banner.hidden = true;
+          });
+        })();
+      </script>
+    </>
+  )
+}
