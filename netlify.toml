@@ -8,3 +8,6 @@
 [build.environment]
   BUN_VERSION = "1.4.0"
   NODE_VERSION = "22"
+  # Without this, `site` falls back to localhost and every canonical and
+  # og:image ships a localhost URL that no crawler can fetch.
+  SITE_URL = "https://romando-porto.netlify.app"
