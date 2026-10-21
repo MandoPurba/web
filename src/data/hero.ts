@@ -15,8 +15,8 @@ export const hero = {
   photo: {
     /** Flip card: two photos, `front.*` and `back.*` in src/assets/hero/ (4:5). */
     sides: [
-      { file: 'front', alt: 'TODO: describe the front photo', caption: ['IMG_0001.JPG', '// me, mid-deploy'] },
-      { file: 'back', alt: 'TODO: describe the back photo', caption: ['IMG_0002.JPG', '// TODO: caption'] },
+      { file: 'front', alt: 'icon photo', caption: ['IMG_0001.JPG', '// me, icon'] },
+      { file: 'back', alt: 'profile photo', caption: ['IMG_0002.JPG', '// me, photos'] },
     ],
     flip: 'Flip the photo',
     sticker: `hi, I'm ${site.name.split(' ')[0]}`,

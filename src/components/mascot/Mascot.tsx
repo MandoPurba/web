@@ -383,7 +383,7 @@ function planScratch(vw: number, vh: number): ScratchPlan | null {
 
 const DOODLES = {
   scratch: [0, 1, 2]
-    .map((i) => `<span class="absolute block h-12 w-1.5 rotate-[24deg] bg-foreground" style="left:${i * 12}px;top:${i * 3}px"></span>`)
+    .map((i) => `<span class="absolute block h-12 w-1.5 rotate-24 bg-foreground" style="left:${i * 12}px;top:${i * 3}px"></span>`)
     .join(''),
   meow: '<span class="inline-block -rotate-12 font-hand text-4xl leading-none text-secondary">meow</span>',
   heart:
@@ -1125,7 +1125,7 @@ export default function Mascot() {
           {/* While it holds the cursor: the page can't be clicked and the real cursor is hidden. */}
           <div className="fixed inset-0 z-98 cursor-none" onClick={(e) => e.preventDefault()} />
           <div ref={layers.cursor} className="pointer-events-none fixed top-0 left-0 z-99">
-            <svg width="22" height="28" viewBox="0 0 11 14" shapeRendering="crispEdges" className="-translate-x-[2px] -translate-y-[2px]">
+            <svg width="22" height="28" viewBox="0 0 11 14" shapeRendering="crispEdges" className="-translate-x-0.5 -translate-y-0.5">
               <path
                 d="M0 0h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h-4v1h1v1h1v1h-2v1h-2v-1h-1v-1h-1v1h-1v1h-1z"
                 className="fill-foreground stroke-background"

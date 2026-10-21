@@ -19,7 +19,7 @@ const ink = 'border-primary-foreground';
   <div class="mx-auto flex max-w-300 flex-col gap-12">
     <div class="flex flex-col gap-4">
       <span data-type class="self-start font-mono text-sm font-bold tracking-[0.06em] uppercase">08 / Say hi</span>
-      <h2 id="contact-title" class="text-[clamp(3.5rem,10vw,9.5rem)] leading-[0.9] font-bold tracking-[-0.05em]">
+      <h2 id="contact-title" class="text-[clamp(3.5rem,10vw,9.5rem)] leading-[0.9] font-bold tracking-tighter">
         <span data-wipe class="relative inline-block"><span data-wipe-text>Say hi.</span></span>
       </h2>
       <p class="max-w-[30em] text-[clamp(1.125rem,1.6vw,1.375rem)] leading-normal">
@@ -36,7 +36,7 @@ const ink = 'border-primary-foreground';
           const content = (
             <>
               <span class="flex-[0_0_6rem] font-mono text-[0.8125rem] tracking-[0.06em] uppercase">{label}</span>
-              <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">{text}</span>
+              <span class="min-w-0 flex-1 wrap-anywhere">{text}</span>
               {url && <span aria-hidden="true">↗</span>}
             </>
           );

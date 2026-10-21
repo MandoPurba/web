@@ -25,8 +25,8 @@ export const site = {
   email: 'prb.romando@gmail.com',
   // TODO: replace with real profile URLs. Entries left as null are omitted from output.
   social: {
-    github: null as string | null,
-    linkedin: null as string | null,
+    github: 'https://github.com/MandoPurba',
+    linkedin: 'https://www.linkedin.com/in/romando-purba12',
     medium: hasMedium ? `https://medium.com/@${mediumUsername}` : null,
   },
   /** Set username to 'TODO' or '' to disable the Medium feed. */

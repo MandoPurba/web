@@ -5,7 +5,7 @@ const { class: className, ...props } = Astro.props;
 <code
   {...props}
   class:list={[
-    'border-(length:--border-width-sm) border-border bg-muted px-1 py-0.5 font-mono text-[0.9em] text-foreground break-words',
+    'border-(length:--border-width-sm) border-border bg-muted px-1 py-0.5 font-mono text-[0.9em] text-foreground wrap-break-word',
     'in-[pre]:border-0 in-[pre]:bg-transparent in-[pre]:p-0',
     className,
   ]}><slot /></code>
